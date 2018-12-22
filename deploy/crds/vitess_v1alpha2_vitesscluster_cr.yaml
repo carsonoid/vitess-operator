@@ -1,0 +1,7 @@
+apiVersion: vitess.io/v1alpha2
+kind: VitessCluster
+metadata:
+  name: example-vitesscluster
+spec:
+  # Add fields here
+  size: 3
