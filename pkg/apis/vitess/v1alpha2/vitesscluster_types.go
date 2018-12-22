@@ -4,14 +4,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 
 // VitessClusterSpec defines the desired state of VitessCluster
 type VitessClusterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	Lockserver Lockserver `json:"lockserver"`
+	// Cells      []Cell     `json:""cells`
 }
+
+type Lockserver struct {
+	Type    LockserverType `json:"type"`
+	Address string         `json:"address"`
+	Path    string         `json:"path"`
+}
+
+type LockserverType string
+
+const (
+	LockserverTypeUndefined = ""
+	LockserverTypeDefault   = "etcd"
+	LockserverTypeEtcd      = "etcd"
+)
 
 // VitessClusterStatus defines the observed state of VitessCluster
 type VitessClusterStatus struct {
