@@ -13,20 +13,6 @@ type VitessClusterSpec struct {
 	// Cells      []Cell     `json:""cells`
 }
 
-type Lockserver struct {
-	Type    LockserverType `json:"type"`
-	Address string         `json:"address"`
-	Path    string         `json:"path"`
-}
-
-type LockserverType string
-
-const (
-	LockserverTypeUndefined = ""
-	LockserverTypeDefault   = "etcd"
-	LockserverTypeEtcd      = "etcd"
-)
-
 // VitessClusterStatus defines the observed state of VitessCluster
 type VitessClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

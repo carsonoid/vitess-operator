@@ -42,5 +42,6 @@ rules:
   - vitess.io
   resources:
   - '*'
+  - vitesscells
   verbs:
   - '*'
