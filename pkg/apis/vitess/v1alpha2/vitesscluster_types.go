@@ -10,7 +10,14 @@ import (
 // VitessClusterSpec defines the desired state of VitessCluster
 type VitessClusterSpec struct {
 	Lockserver Lockserver `json:"lockserver"`
-	// Cells      []Cell     `json:""cells`
+
+	Cells []VitessCell `json:"cells"`
+
+	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
+
+	Keyspaces []VitessKeyspace `json:"keyspaces"`
+
+	KeyspaceSelector []ResourceSelector `json:"keyspaceSelector,omitempty"`
 }
 
 // VitessClusterStatus defines the observed state of VitessCluster
