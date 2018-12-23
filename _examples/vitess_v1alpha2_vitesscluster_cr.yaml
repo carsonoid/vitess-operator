@@ -1,7 +1,58 @@
 apiVersion: vitess.io/v1alpha2
 kind: VitessCluster
 metadata:
-  name: example-vitesscluster
+  name: superawesomecluster
+  labels:
+    app: vitess
 spec:
-  # Add fields here
-  size: 3
+  lockserver:
+    metadata:
+      name: ""
+    spec:
+      provision: true
+      etcd3:
+        address: etcd-cluster-client:2379
+        path: /vitess/global
+  cells:
+    - metadata:
+        name: uswest
+      spec:
+        lockserver:
+          etcd3:
+            address: etc-cluster-client:2379
+            path: /vitess/uswest
+        vtgate:
+          - count: 2
+        vtworker:
+          - count: 2
+        vtctld:
+          - count: 1
+  keyspaces:
+    - metadata:
+        name: messagedb
+      spec:
+        shards:
+        - metadata:
+            name: "-80"
+          spec:
+            keyrange: { to: "80" }
+            tablets:
+              - metadata:
+                   name: "uswest-101"
+                spec:
+                  tabletId: 101
+                  cell: uswest
+                  type: "replica"
+                  keyrange: { to: "80" }
+        - metadata:
+            name: "80-"
+          spec:
+            keyrange: { from: "80" }
+            tablets:
+            - metadata:
+                name: "uswest-201"
+              spec:
+                tabletId: 201
+                cell: uswest
+                type: "replica"
+                keyrange: { from: "80" }

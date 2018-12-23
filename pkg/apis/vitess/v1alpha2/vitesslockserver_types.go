@@ -9,7 +9,7 @@ import (
 
 // VitessLockserverSpec defines the desired state of VitessLockserver
 type VitessLockserverSpec struct {
-	Provision bool `json:provision,omitempty`
+	Provision bool `json:"provision,omitempty"`
 
 	Etcd3 *Etcd3Lockserver `json:"etcd3,omitempty"`
 }

@@ -189,7 +189,7 @@ spec:
            - metadata:
                name: "-80"
              spec:
-               keyrange: { to: 80 }
+               keyrange: { to: "80" }
                tablets:
                  - metadata:
                       name: "uswest-101"
@@ -197,11 +197,11 @@ spec:
                      tabletId: 101
                      cell: uswest
                      type: "replica"
-                     keyrange: { to: 80 }
+                     keyrange: { to: "80" }
            - metadata:
                name: "80-"
              spec:
-               keyrange: { from: 80 }
+               keyrange: { from: "80" }
                tablets:
                  - metadata:
                       name: "uswest-201"
@@ -209,4 +209,4 @@ spec:
                      tabletId: 201
                      cell: uswest
                      type: "replica"
-                     keyrange: { from: 80 }
+                     keyrange: { from: "80" }
