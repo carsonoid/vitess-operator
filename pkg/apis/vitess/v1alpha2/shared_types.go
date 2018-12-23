@@ -1,5 +1,9 @@
 package v1alpha2
 
+import (
+	corev1 "k8s.io/api/core/v1"
+)
+
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 
@@ -12,10 +16,10 @@ type Lockserver struct {
 type LockserverType string
 
 const (
-	LockserverTypeUndefined = ""
-	LockserverTypeDefault   = "etcd"
-	LockserverTypeEtcd      = "etcd"
+	LockserverTypeEtcd LockserverType = "etcd"
 )
+
+const LockserverTypeDefault LockserverType = LockserverTypeEtcd
 
 type ResourceSelector struct {
 	// The label key that the selector applies to.
@@ -38,3 +42,15 @@ const (
 	ResourceSelectorOpExists       ResourceSelectorOperator = "Exists"
 	ResourceSelectorOpDoesNotExist ResourceSelectorOperator = "DoesNotExist"
 )
+
+type VTContainer struct {
+	Image string `json:"image"`
+
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type KeyRange struct {
+	From string `json:"from"`
+
+	To string `json:"to"`
+}

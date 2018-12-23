@@ -24,7 +24,7 @@ type VTGate struct {
 
 	Cells []string `json:"cells:`
 
-	CellSelector CellSelector `json:"cellSelector"`
+	CellSelector *CellSelector `json:"cellSelector,omitempty"`
 }
 
 type VTGateCredentials struct {

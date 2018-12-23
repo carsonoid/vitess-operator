@@ -1,0 +1,7 @@
+apiVersion: vitess.io/v1alpha2
+kind: VitessShard
+metadata:
+  name: example-vitessshard
+spec:
+  # Add fields here
+  size: 3
