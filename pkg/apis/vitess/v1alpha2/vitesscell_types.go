@@ -10,10 +10,13 @@ import (
 
 // VitessCellSpec defines the desired state of VitessCell
 type VitessCellSpec struct {
-	Lockserver Lockserver `json:"lockserver"`
-	VTGate     []VTGate   `json:"vtgate"`
-	VTWorker   []VTWorker `json:"vtworker"`
-	VTCtld     []VTCtld   `json:"vtctld"`
+	Lockserver VitessLockserver `json:"lockserver"`
+
+	VTGate []VTGate `json:"vtgate"`
+
+	VTWorker []VTWorker `json:"vtworker"`
+
+	VTCtld []VTCtld `json:"vtctld"`
 }
 
 type VTGate struct {
@@ -34,7 +37,8 @@ type VTGateCredentials struct {
 }
 
 type CellSelector struct {
-	MatchLabels      map[string]string  `json:"matchLabels,omitempty"`
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+
 	MatchExpressions []ResourceSelector `json:"matchExpressions,omitempty"`
 }
 
@@ -49,7 +53,8 @@ type VTCtld struct {
 }
 
 type VTComponent struct {
-	Count      int64              `json:"count"`
+	Count int64 `json:"count"`
+
 	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name"`
 
 	// NodeSelector is a simple key-value matching for nodes

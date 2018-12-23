@@ -1,6 +1,7 @@
 package v1alpha2
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -9,7 +10,9 @@ import (
 
 // VitessClusterSpec defines the desired state of VitessCluster
 type VitessClusterSpec struct {
-	Lockserver Lockserver `json:"lockserver"`
+	Lockserver *VitessLockserver `json:"lockserver"`
+
+	LockserverRef *corev1.LocalObjectReference `json:"lockserverRef"`
 
 	Cells []VitessCell `json:"cells"`
 
