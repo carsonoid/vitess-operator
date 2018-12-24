@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	vitessv1alpha2 "github.com/vitessio/vitess-operator/pkg/apis/vitess/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,6 +16,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	vitessv1alpha2 "github.com/vitessio/vitess-operator/pkg/apis/vitess/v1alpha2"
+	vlcontroller "github.com/vitessio/vitess-operator/pkg/controller/vitesslockserver"
 )
 
 var log = logf.Log.WithName("controller_vitesscluster")
@@ -111,9 +114,40 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 
 	// Reconcile Lockserver
 
-	// Provision Lockserver when requested if it's not already created
-	if vc.Spec.Lockserver != nil && vc.Spec.Lockserver.Spec.Provision {
-		reqLogger.Info("Provisioning Lockserver")
+	// Handle embedded lockserver
+	if vc.Spec.Lockserver != nil {
+		// Build a complete VitessLockserver
+		vl := &vitessv1alpha2.VitessLockserver{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vc.GetName(),
+				Namespace: vc.GetNamespace(),
+			},
+			Spec: *vc.Spec.Lockserver.DeepCopy(),
+		}
+
+		// If status is not empty, deepcopy it in
+		if vc.Status.Lockserver != nil {
+			vc.Status.Lockserver.DeepCopyInto(&vl.Status)
+		} else {
+			vc.Status.Lockserver = &vitessv1alpha2.VitessLockserverStatus{}
+		}
+
+		// Run it through the controller's reconcile func
+		recResult, recErr := vlcontroller.ReconcileVitessLockserverObject(vl, reqLogger)
+
+		// Split and store the spec and status in the parent VitessCluster
+		vc.Spec.Lockserver = vl.Spec.DeepCopy()
+		vc.Status.Lockserver = vl.Status.DeepCopy()
+
+		if err := r.client.Status().Update(context.TODO(), vc); err != nil {
+			reqLogger.Error(err, "Failed to update VitessCluster status after lockserver change.")
+			return reconcile.Result{}, err
+		}
+
+		// Reque if needed
+		if recErr != nil || recResult.Requeue {
+			return recResult, recErr
+		}
 	}
 
 	// Fetch the lockserver from Ref if givien

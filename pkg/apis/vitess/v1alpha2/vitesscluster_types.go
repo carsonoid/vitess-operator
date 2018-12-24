@@ -10,23 +10,28 @@ import (
 
 // VitessClusterSpec defines the desired state of VitessCluster
 type VitessClusterSpec struct {
-	Lockserver *VitessLockserver `json:"lockserver"`
+	Lockserver *VitessLockserverSpec `json:"lockserver,omitempty"`
 
-	LockserverRef *corev1.LocalObjectReference `json:"lockserverRef"`
+	LockserverRef *corev1.LocalObjectReference `json:"lockserverRef,omitempty"`
 
-	Cells []VitessCell `json:"cells"`
+	Cells map[string]VitessCellSpec `json:"cells,omitempty"`
 
 	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
 
-	Keyspaces []VitessKeyspace `json:"keyspaces"`
+	Keyspaces map[string]VitessKeyspaceSpec `json:"keyspaces,omitempty"`
 
 	KeyspaceSelector []ResourceSelector `json:"keyspaceSelector,omitempty"`
 }
 
 // VitessClusterStatus defines the observed state of VitessCluster
 type VitessClusterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	State string `json:"state,omitempty"`
+
+	Lockserver *VitessLockserverStatus `json:"lockserver,omitempty"`
+
+	Cells map[string]*VitessCellStatus `json:"cells,omitempty"`
+
+	Keyspaces map[string]*VitessKeyspaceStatus `json:"keyspaces,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

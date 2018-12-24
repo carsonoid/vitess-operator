@@ -21,8 +21,7 @@ type Etcd3Lockserver struct {
 
 // VitessLockserverStatus defines the observed state of VitessLockserver
 type VitessLockserverStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	State string `json:"state,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

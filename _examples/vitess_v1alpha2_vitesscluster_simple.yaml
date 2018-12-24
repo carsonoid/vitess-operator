@@ -1,0 +1,74 @@
+## Sample VitessCluster all-in-one resource
+apiVersion: vitess.io/v1alpha2
+kind: VitessCluster
+metadata:
+  name: simple
+  labels:
+    app: vitess
+spec:
+  # lockserver is an embeded VitessLockserverSpec
+  lockserver:
+    provision: true
+    etcd3:
+      address: etcd-cluster-client:2379
+      path: /vitess/global
+  # keyspaces is a map of strings to VitessCellSpecs
+  cells:
+    uswest:
+      lockserver:
+        etcd3:
+          address: etc-cluster-client:2379
+          path: /vitess/uswest
+      vtgate:
+        - count: 2
+      vtworker:
+        - count: 2
+      vtctld:
+        - count: 1
+  # keyspaces is a map of strings to VitessKeyspaceSpecs
+  keyspaces:
+    messagedb:
+      # shards is a map of strings to VitessShardSpecs
+      shards:
+        X-80:
+          keyrange: { to: "80" }
+          # tablets is a map of strings to VitessTabletSpecs
+          tablets:
+            uswest-101:
+              tabletId: 101
+              cell: uswest
+              type: "replica"
+              keyrange: { to: "80" }
+        80-X:
+          keyrange: { from: "80" }
+          # tablets is a map of strings to VitessTabletSpecs
+          tablets:
+            uswest-201:
+              tabletId: 201
+              cell: uswest
+              type: "replica"
+              keyrange: { from: "80" }
+# Status shown here as an example only
+# status:
+#   state: ""
+#   # lockserver is an embeded VitessLockserverStatus object
+#   lockserver:
+#     state: ""
+#   # cells is a map of strings to VitessCellStatus objects
+#   cells:
+#     uswest:
+#       state: ""
+#   # keyspaces is a map of strings to VitessKeyspaceStatus objects
+#   keyspaces:
+#     messagedb:
+#       state: ""
+#       # shards is a map of strings to VitessShardStatus objects
+#       shards:
+#         X-80:
+#           state: ""
+#           # tablets is a map of strings to VitessTabletStatus objects
+#           tablets:
+#             uswest-101:
+#               state: ""
+#             uswest-201:
+#               state: ""

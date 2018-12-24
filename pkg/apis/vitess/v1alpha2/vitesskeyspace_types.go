@@ -11,7 +11,7 @@ import (
 type VitessKeyspaceSpec struct {
 	Defaults VitessKeyspaceOptions `json:"defaults"`
 
-	Shards []VitessShard `json:"shards"`
+	Shards []VitessShardSpec `json:"shards"`
 
 	ShardSelector []ResourceSelector `json:"shardSelector,omitempty"`
 }
@@ -49,8 +49,9 @@ type VitessContainerOptions struct {
 
 // VitessKeyspaceStatus defines the observed state of VitessKeyspace
 type VitessKeyspaceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	State string `json:"state,omitempty"`
+
+	Shards map[string]*VitessShardStatus `json:"shards,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
