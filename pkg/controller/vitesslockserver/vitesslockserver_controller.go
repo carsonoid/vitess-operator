@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	vitessv1alpha2 "github.com/vitessio/vitess-operator/pkg/apis/vitess/v1alpha2"
+	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

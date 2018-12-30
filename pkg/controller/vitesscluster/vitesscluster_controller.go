@@ -17,8 +17,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	vitessv1alpha2 "github.com/vitessio/vitess-operator/pkg/apis/vitess/v1alpha2"
-	vlcontroller "github.com/vitessio/vitess-operator/pkg/controller/vitesslockserver"
+	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
+	vlcontroller "vitess.io/vitess-operator/pkg/controller/vitesslockserver"
 )
 
 var log = logf.Log.WithName("controller_vitesscluster")

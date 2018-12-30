@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/vitessio/vitess-operator/pkg/apis/vitess/v1alpha2"
+	"vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 )
 
 func init() {

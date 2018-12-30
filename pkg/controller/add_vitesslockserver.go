@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/vitessio/vitess-operator/pkg/controller/vitesslockserver"
+	"vitess.io/vitess-operator/pkg/controller/vitesslockserver"
 )
 
 func init() {
