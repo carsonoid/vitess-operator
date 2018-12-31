@@ -30,8 +30,12 @@ type VitessTabletSpec struct {
 type TabletType string
 
 const (
+	TabletTypeMaster   TabletType = "master"
 	TabletTypeReplica  TabletType = "replica"
 	TabletTypeReadOnly TabletType = "readonly"
+	TabletTypeBackup   TabletType = "backup"
+	TabletTypeRestore  TabletType = "restore"
+	TabletTypeDrained  TabletType = "drained"
 )
 
 const TabletTypeDefault TabletType = TabletTypeReplica

@@ -1,7 +1,12 @@
+---
 apiVersion: vitess.io/v1alpha2
 kind: VitessKeyspace
 metadata:
-  name: example-vitesskeyspace
+  name: simple
 spec:
-  # Add fields here
-  size: 3
+  shards:
+    X-X:
+      tablets:
+        uswest-101:
+          tabletId: 101
+          cell: uswest

@@ -91,6 +91,11 @@ func (r *ReconcileVitessShard) Reconcile(request reconcile.Request) (reconcile.R
 
 	rr, err := ReconcileObject(request, instance, reqLogger)
 
+	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update VitessShard status.")
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	return rr, err
 }
 

@@ -91,6 +91,11 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 
 	rr, err := ReconcileObject(request, instance, reqLogger)
 
+	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
+		reqLogger.Error(err, "Failed to update VitessKeyspace status.")
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	return rr, err
 }
 

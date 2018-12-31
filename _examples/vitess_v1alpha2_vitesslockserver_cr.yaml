@@ -1,7 +1,9 @@
+---
 apiVersion: vitess.io/v1alpha2
 kind: VitessLockserver
 metadata:
   name: example-vitesslockserver
 spec:
-  # Add fields here
-  size: 3
+  etcd3:
+    address: etcd-cluster-client:2379
+    path: /vitess/global

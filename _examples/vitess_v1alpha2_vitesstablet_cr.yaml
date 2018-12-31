@@ -1,7 +1,11 @@
+---
 apiVersion: vitess.io/v1alpha2
 kind: VitessTablet
 metadata:
-  name: example-vitesstablet
+  name: simple
+  labels:
+    app: vitess
 spec:
-  # Add fields here
-  size: 3
+  tabletId: 101
+  cell: zone0
+  type: master

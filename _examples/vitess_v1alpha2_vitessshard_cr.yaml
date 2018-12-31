@@ -1,7 +1,11 @@
+---
 apiVersion: vitess.io/v1alpha2
 kind: VitessShard
 metadata:
-  name: example-vitessshard
+  name: simple
 spec:
-  # Add fields here
-  size: 3
+  tablets:
+    default:
+        tabletId: 101
+        cell: zone0
+        type: master
