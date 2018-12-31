@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+
 	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -18,15 +21,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
-	vlcontroller "vitess.io/vitess-operator/pkg/controller/vitesslockserver"
+	keyspace_controller "vitess.io/vitess-operator/pkg/controller/vitesskeyspace"
+	lockserver_controller "vitess.io/vitess-operator/pkg/controller/vitesslockserver"
 )
 
 var log = logf.Log.WithName("controller_vitesscluster")
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new VitessCluster Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -113,59 +112,12 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Reconcile Lockserver
-
-	// Handle embedded lockserver
-	if vc.Spec.Lockserver != nil {
-		// Build a complete VitessLockserver
-		vl := &vitessv1alpha2.VitessLockserver{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      vc.GetName(),
-				Namespace: vc.GetNamespace(),
-			},
-			Spec: *vc.Spec.Lockserver.DeepCopy(),
-		}
-
-		// If status is not empty, deepcopy it in
-		if vc.Status.Lockserver != nil {
-			vc.Status.Lockserver.DeepCopyInto(&vl.Status)
-		} else {
-			vc.Status.Lockserver = &vitessv1alpha2.VitessLockserverStatus{}
-		}
-
-		// Run it through the controller's reconcile func
-		recResult, recErr := vlcontroller.ReconcileVitessLockserverObject(vl, reqLogger)
-
-		// Split and store the spec and status in the parent VitessCluster
-		vc.Spec.Lockserver = vl.Spec.DeepCopy()
-		vc.Status.Lockserver = vl.Status.DeepCopy()
-
-		if err := r.client.Status().Update(context.TODO(), vc); err != nil {
-			reqLogger.Error(err, "Failed to update VitessCluster status after lockserver change.")
-			return reconcile.Result{}, err
-		}
-
-		// Reque if needed
-		if recErr != nil || recResult.Requeue {
-			return recResult, recErr
-		}
-	}
-
-	// Fetch the lockserver from Ref if givien
-	if vc.Spec.LockserverRef != nil {
-		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
-		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
-		// get this pointer manully for now
-		// TODO use an object cache to make the ref
-		ls := &vitessv1alpha2.VitessLockserver{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vc.Spec.LockserverRef.Name, Namespace: request.NamespacedName.Namespace}, ls)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// If the referenced Lockserver is not found, error out and requeue
-				return reconcile.Result{Requeue: true}, fmt.Errorf("Lockserver referenced by lockserverRef %s not found", vc.Spec.LockserverRef.Name)
-			}
-			// Error reading the object - requeue the request.
-			return reconcile.Result{Requeue: true}, err
-		}
+	if result, err := r.ReconcileClusterLockserver(request, vc, reqLogger); err != nil {
+		reqLogger.Info("Error Reconciling Lockserver")
+		return result, err
+	} else if result.Requeue {
+		reqLogger.Info("Requeue after reconciling Lockserver")
+		return result, nil
 	}
 
 	// Reconcile VitessCells
@@ -180,9 +132,15 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	// Reconcile VitessKeyspaces
 
 	// Reconcile embedded VitessKeyspaces
-	if len(vc.Spec.Keyspaces) != 0 {
-		reqLogger.Info("Provisioning Keyspaces")
+	if result, err := r.ReconcileClusterKeyspaces(request, vc, reqLogger); err != nil {
+		reqLogger.Info("Error Reconciling Keyspaces")
+		return result, err
+	} else if result.Requeue {
+		reqLogger.Info("Requeue after reconciling Keyspaces")
+		return result, nil
 	}
+
+	// Reconcile
 
 	// TODO reconcile VitessKeyspaces from selectors
 
@@ -218,25 +176,111 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-// func newVitessDeployment(cr *vitessv1alpha2.VitessCluster) *corev1.Pod {
-// 	labels := map[string]string{
-// 		"app": cr.Name,
-// 	}
-// 	return &corev1.Pod{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      cr.Name + "-pod",
-// 			Namespace: cr.Namespace,
-// 			Labels:    labels,
-// 		},
-// 		Spec: corev1.PodSpec{
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:    "busybox",
-// 					Image:   "busybox",
-// 					Command: []string{"sleep", "3600"},
-// 				},
-// 			},
-// 		},
-// 	}
-// }
+func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
+	reqLogger := upstreamLog.WithValues()
+	reqLogger.Info("Reconciling Embedded Lockserver")
+
+	if vc.Spec.Lockserver != nil {
+		// Build a complete VitessLockserver
+		vl := &vitessv1alpha2.VitessLockserver{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vc.GetName(),
+				Namespace: vc.GetNamespace(),
+			},
+			Spec: *vc.Spec.Lockserver.DeepCopy(),
+		}
+
+		if vc.Status.Lockserver != nil {
+			// If status is not empty, deepcopy it into the tmp object
+			vc.Status.Lockserver.DeepCopyInto(&vl.Status)
+		}
+
+		// Run it through the controller's reconcile func
+		recResult, recErr := lockserver_controller.ReconcileObject(vl, reqLogger)
+
+		// Split and store the spec and status in the parent VitessCluster
+		vc.Spec.Lockserver = vl.Spec.DeepCopy()
+		vc.Status.Lockserver = vl.Status.DeepCopy()
+
+		if err := r.client.Status().Update(context.TODO(), vc); err != nil {
+			reqLogger.Error(err, "Failed to update VitessCluster status after lockserver change.")
+			return reconcile.Result{}, err
+		}
+
+		// Reque if needed
+		if recErr != nil || recResult.Requeue {
+			return recResult, recErr
+		}
+	}
+
+	// Fetch the lockserver from Ref if given
+	if vc.Spec.LockserverRef != nil {
+		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
+		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
+		// get this pointer manully for now
+		// TODO use an object cache to make the ref
+		ls := &vitessv1alpha2.VitessLockserver{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vc.Spec.LockserverRef.Name, Namespace: request.NamespacedName.Namespace}, ls)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// If the referenced Lockserver is not found, error out and requeue
+				return reconcile.Result{Requeue: true}, fmt.Errorf("Lockserver referenced by lockserverRef %s not found", vc.Spec.LockserverRef.Name)
+			}
+			// Error reading the object - requeue the request.
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
+	reqLogger := upstreamLog.WithValues()
+
+	// Handle embedded keyspaces
+	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
+		reqLogger.Info(fmt.Sprintf("Reconciling Embedded Keyspace %s", keyspaceName))
+
+		// make sure status map is initialized
+		if vc.Status.Keyspaces == nil {
+			vc.Status.Keyspaces = make(map[string]*vitessv1alpha2.VitessKeyspaceStatus)
+		}
+
+		// Build a complete VitessKeyspace
+		vk := &vitessv1alpha2.VitessKeyspace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vc.GetName() + "-" + keyspaceName,
+				Namespace: vc.GetNamespace(),
+			},
+			Spec: *keyspaceSpec.DeepCopy(),
+		}
+
+		if keyspaceStatus, ok := vc.Status.Keyspaces[keyspaceName]; ok {
+			// If status is not empty, deepcopy it into the tmp object
+			keyspaceStatus.DeepCopyInto(&vk.Status)
+		}
+
+		// Run it through the controller's reconcile func
+		recResult, recErr := keyspace_controller.ReconcileObject(request, vk, reqLogger)
+
+		// Split and store the spec and status in the parent VitessCluster
+		vc.Spec.Keyspaces[keyspaceName] = *vk.Spec.DeepCopy()
+		vc.Status.Keyspaces[keyspaceName] = vk.Status.DeepCopy()
+
+		if err := r.client.Status().Update(context.TODO(), vc); err != nil {
+			reqLogger.Error(err, "Failed to update VitessCluster status after Keyspace change.")
+			return reconcile.Result{}, err
+		}
+
+		// Reque if needed
+		if recErr != nil || recResult.Requeue {
+			return recResult, recErr
+		}
+	}
+
+	// for _, keyspaceSelector := range vc.Spec.KeyspaceSelector {
+	// 	// TODO Fetch the Keyspaces from the selector
+	// }
+
+	return reconcile.Result{}, nil
+}

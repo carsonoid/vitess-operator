@@ -12,11 +12,15 @@ import (
 type VitessCellSpec struct {
 	Lockserver VitessLockserver `json:"lockserver"`
 
-	VTGate []VTGate `json:"vtgate"`
+	Defaults []VTComponent `json:"defaults"`
 
-	VTWorker []VTWorker `json:"vtworker"`
+	VTGate []VTComponent `json:"vtgate"`
 
-	VTCtld []VTCtld `json:"vtctld"`
+	VTWorker []VTComponent `json:"vtworker"`
+
+	VTCtld []VTComponent `json:"vtctld"`
+
+	Orchestrator []VTComponent `json:"orchestrator"`
 }
 
 type VTGate struct {
@@ -42,33 +46,10 @@ type CellSelector struct {
 	MatchExpressions []ResourceSelector `json:"matchExpressions,omitempty"`
 }
 
-type VTWorker struct {
-	// Inline common component struct members
-	VTComponent `json:",inline"`
-}
-
-type VTCtld struct {
-	// Inline common component struct members
-	VTComponent `json:",inline"`
-}
-
 type VTComponent struct {
-	Count int64 `json:"count"`
+	Replicas int64 `json:"replicas,omitempty"`
 
-	Containers []corev1.Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name"`
-
-	// NodeSelector is a simple key-value matching for nodes
-	// +optional
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
-	// Affinity is the upstream pod affinity resource
-	// +optional
-	Affinity *corev1.Affinity `json:"affinity,omitempty"`
-
-	// Tolerations is a list of upstream pod toleration resources
-	// +optional
-	// +patchStrategy=merge
-	Tolerations []corev1.Toleration `json:"tolerations,omitempty" patchStrategy:"merge"`
+	ContainerSpec []*corev1.Container `json:"containerSpec,omitempty"`
 }
 
 // VitessCellStatus defines the observed state of VitessCell

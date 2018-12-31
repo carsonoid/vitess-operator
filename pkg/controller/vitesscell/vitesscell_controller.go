@@ -1,26 +1,28 @@
-package vitesslockserver
+package vitesscell
 
 import (
 	"context"
 
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
+	// corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	// "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+
+	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 )
 
-var log = logf.Log.WithName("controller_vitesslockserver")
+var log = logf.Log.WithName("controller_vitesscell")
 
-// Add creates a new VitessLockserver Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new VitessCell Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -28,29 +30,19 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileVitessLockserver{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileVitessCell{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("vitesslockserver-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("vitesscell-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource VitessLockserver
-	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessLockserver{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner VitessLockserver
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &vitessv1alpha2.VitessLockserver{},
-	})
+	// Watch for changes to primary resource VitessCell
+	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessCell{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -58,26 +50,29 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-var _ reconcile.Reconciler = &ReconcileVitessLockserver{}
+var _ reconcile.Reconciler = &ReconcileVitessCell{}
 
-// ReconcileVitessLockserver reconciles a VitessLockserver object
-type ReconcileVitessLockserver struct {
+// ReconcileVitessCell reconciles a VitessCell object
+type ReconcileVitessCell struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a VitessLockserver object and makes changes based on the state read
-// and what is in the VitessLockserver.Spec
+// Reconcile reads that state of the cluster for a VitessCell object and makes changes based on the state read
+// and what is in the VitessCell.Spec
+// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
+// a Pod as an example
+// Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileVitessLockserver) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileVitessCell) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	// reqLogger.Info("Reconciling VitessLockserver")
+	reqLogger.Info("Reconciling VitessCell")
 
-	// Fetch the VitessLockserver instance
-	instance := &vitessv1alpha2.VitessLockserver{}
+	// Fetch the VitessCell instance
+	instance := &vitessv1alpha2.VitessCell{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -90,16 +85,5 @@ func (r *ReconcileVitessLockserver) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	rr, err := ReconcileObject(instance, reqLogger)
-
-	return rr, err
-}
-
-// ReconcileObject does all the actual reconcile work
-func ReconcileObject(instance *vitessv1alpha2.VitessLockserver, upstreamLog logr.Logger) (reconcile.Result, error) {
-	reqLogger := upstreamLog.WithValues()
-	reqLogger.Info("Reconciling VitessLockserver")
-	// TODO actual reconcile
-	instance.Status.State = "Ready"
 	return reconcile.Result{}, nil
 }
