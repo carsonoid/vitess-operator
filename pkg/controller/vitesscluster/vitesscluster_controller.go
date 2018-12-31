@@ -132,7 +132,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	// Reconcile VitessKeyspaces
 
 	// Reconcile embedded VitessKeyspaces
-	if result, err := r.ReconcileClusterKeyspaces(request, vc, reqLogger); err != nil {
+	if result, err := r.ReconcileClusterKeyspaces(r.client, request, vc, reqLogger); err != nil {
 		reqLogger.Info("Error Reconciling Keyspaces")
 		return result, err
 	} else if result.Requeue {
@@ -234,7 +234,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Re
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
 	// Handle embedded keyspaces
@@ -261,7 +261,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(request reconcile.Req
 		}
 
 		// Run it through the controller's reconcile func
-		recResult, recErr := keyspace_controller.ReconcileObject(request, vk, reqLogger)
+		recResult, recErr := keyspace_controller.ReconcileObject(client, request, vk, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vc.Spec.Keyspaces[keyspaceName] = *vk.Spec.DeepCopy()

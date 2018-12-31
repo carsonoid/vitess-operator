@@ -89,7 +89,7 @@ func (r *ReconcileVitessShard) Reconcile(request reconcile.Request) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	rr, err := ReconcileObject(request, instance, reqLogger)
+	rr, err := ReconcileObject(r.client, request, instance, reqLogger)
 
 	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "Failed to update VitessShard status.")
@@ -100,11 +100,13 @@ func (r *ReconcileVitessShard) Reconcile(request reconcile.Request) (reconcile.R
 }
 
 // ReconcileObject does all the actual reconcile work
-func ReconcileObject(request reconcile.Request, instance *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
+func ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 	reqLogger.Info("Reconciling VitessShard")
 
-	result, err := ReconcileClusterTablets(request, instance, upstreamLog)
+	// There isn't much to do for shards themselves, they merely exist as a way to group tablets
+	// so all that hapens here is to call the reconcilitation on each embedded tablet spec
+	result, err := ReconcileClusterTablets(client, request, instance, upstreamLog)
 	if err != nil || result.Requeue {
 		return result, err
 	}
@@ -113,7 +115,7 @@ func ReconcileObject(request reconcile.Request, instance *vitessv1alpha2.VitessS
 	return reconcile.Result{}, nil
 }
 
-func ReconcileClusterTablets(request reconcile.Request, vs *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
+func ReconcileClusterTablets(client client.Client, request reconcile.Request, vs *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
 	// Handle embedded keyspaces
@@ -140,7 +142,7 @@ func ReconcileClusterTablets(request reconcile.Request, vs *vitessv1alpha2.Vites
 		}
 
 		// Run it through the controller's reconcile func
-		recResult, recErr := tablet_controller.ReconcileObject(request, vt, reqLogger)
+		recResult, recErr := tablet_controller.ReconcileObject(client, request, vt, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vs.Spec.Tablets[tabletName] = *vt.Spec.DeepCopy()

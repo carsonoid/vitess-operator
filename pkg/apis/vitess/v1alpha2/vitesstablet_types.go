@@ -12,6 +12,8 @@ import (
 type VitessTabletSpec struct {
 	TabletID int64 `json:"tabletId"`
 
+	Replicas int32 `json:"replicas"`
+
 	Cell string `json:"cell"`
 
 	Keyrange KeyRange `json:"keyrange"`
