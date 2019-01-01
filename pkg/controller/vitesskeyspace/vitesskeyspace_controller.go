@@ -37,6 +37,11 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileVitessKeyspace{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
+// NewReconciler returns a new reconcile.Reconciler
+func NewReconciler(client client.Client, scheme *runtime.Scheme) *ReconcileVitessKeyspace {
+	return &ReconcileVitessKeyspace{client: client, scheme: scheme}
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
@@ -89,7 +94,7 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	rr, err := ReconcileObject(r.client, request, instance, reqLogger)
+	rr, err := r.ReconcileObject(r.client, request, instance, reqLogger)
 
 	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "Failed to update VitessKeyspace status.")
@@ -100,11 +105,11 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 }
 
 // ReconcileObject does all the actual reconcile work
-func ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessKeyspace) ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 	reqLogger.Info("Reconciling VitessKeyspace")
 
-	result, err := ReconcileClusterShards(client, request, instance, upstreamLog)
+	result, err := r.ReconcileClusterShards(client, request, instance, upstreamLog)
 	if err != nil || result.Requeue {
 		return result, err
 	}
@@ -114,7 +119,7 @@ func ReconcileObject(client client.Client, request reconcile.Request, instance *
 	return reconcile.Result{}, nil
 }
 
-func ReconcileClusterShards(client client.Client, request reconcile.Request, vk *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessKeyspace) ReconcileClusterShards(client client.Client, request reconcile.Request, vk *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
 	// Handle embedded keyspaces
@@ -141,7 +146,8 @@ func ReconcileClusterShards(client client.Client, request reconcile.Request, vk 
 		}
 
 		// Run it through the controller's reconcile func
-		recResult, recErr := shard_controller.ReconcileObject(client, request, vs, reqLogger)
+		shardReconciler := shard_controller.NewReconciler(r.client, r.scheme)
+		recResult, recErr := shardReconciler.ReconcileObject(client, request, vs, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vk.Spec.Shards[shardName] = *vs.Spec.DeepCopy()

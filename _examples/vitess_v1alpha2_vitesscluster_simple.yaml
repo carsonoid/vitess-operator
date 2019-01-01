@@ -32,7 +32,7 @@ spec:
   keyspaces:
     unsharded:
       shards:
-        X-X:
+        x-x:
            # tablets is a map of strings to VitessTabletSpecs
           tablets:
             uswest-101:

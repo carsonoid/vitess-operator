@@ -140,36 +140,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 		return result, nil
 	}
 
-	// Reconcile
-
 	// TODO reconcile VitessKeyspaces from selectors
-
-	// pod := newPodForCR(instance)
-
-	// // Set VitessCluster instance as the owner and controller
-	// if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {u
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Check if this Pod already exists
-	// found := &corev1.Pod{}
-	// err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	// if err != nil && errors.IsNotFound(err) {
-	// 	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-	// 	err = r.client.Create(context.TODO(), pod)
-	// 	if err != nil {
-	// 		return reconcile.Result{}, err
-	// 	}
-
-	// 	// Pod created successfully - don't requeue
-	// 	return reconcile.Result{}, nil
-	// } else if err != nil {
-	// 	return reconcile.Result{}, err
-	// }
-
-	// // Pod already exists - don't requeue
-	// reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
-	// return reconcile.Result{}, nil
 
 	// Nothing to do - don't reqeue
 	reqLogger.Info("Skip reconcile: all managed services in sync")
@@ -261,7 +232,9 @@ func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(client client.Client,
 		}
 
 		// Run it through the controller's reconcile func
-		recResult, recErr := keyspace_controller.ReconcileObject(client, request, vk, reqLogger)
+		// Run it through the controller's reconcile func
+		keyspaceReconciler := keyspace_controller.NewReconciler(r.client, r.scheme)
+		recResult, recErr := keyspaceReconciler.ReconcileObject(client, request, vk, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vc.Spec.Keyspaces[keyspaceName] = *vk.Spec.DeepCopy()

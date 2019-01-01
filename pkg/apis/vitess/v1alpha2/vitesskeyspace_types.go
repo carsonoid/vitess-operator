@@ -9,33 +9,11 @@ import (
 
 // VitessKeyspaceSpec defines the desired state of VitessKeyspace
 type VitessKeyspaceSpec struct {
-	Defaults VitessKeyspaceOptions `json:"defaults"`
+	Defaults *VitessShardOptions `json:"defaults"`
 
 	Shards map[string]VitessShardSpec `json:"shards"`
 
 	ShardSelector []ResourceSelector `json:"shardSelector,omitempty"`
-}
-
-type VitessKeyspaceOptions struct {
-	Shards VitessShardOptions `json:"shards"`
-
-	Replicas VitessReplicaOptions `json:"replicas"`
-
-	Batch VitessBatchOptions `json:""batch`
-
-	Containers VitessContainerOptions `json:"containers"`
-
-	Cells []string `json:"cells"`
-
-	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
-}
-
-type VitessShardOptions struct {
-	Count int64 `json:"count"`
-}
-
-type VitessReplicaOptions struct {
-	Count int64 `json:"count"`
 }
 
 type VitessBatchOptions struct {

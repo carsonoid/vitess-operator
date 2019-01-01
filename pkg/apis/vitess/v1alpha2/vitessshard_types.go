@@ -9,13 +9,25 @@ import (
 
 // VitessShardSpec defines the desired state of VitessShard
 type VitessShardSpec struct {
-	Defaults VitessShardOptions `json:"defaults"`
+	Defaults *VitessShardOptions `json:"defaults"`
 
 	KeyRange KeyRange `json:"keyrange"`
 
 	Tablets map[string]VitessTabletSpec `json:"tablets"`
 
 	TabletSelector []ResourceSelector `json:"tabletSelector,omitempty"`
+}
+
+type VitessShardOptions struct {
+	Replicas *int32 `json:"replicas"`
+
+	Batch VitessBatchOptions `json:""batch`
+
+	Containers VitessContainerOptions `json:"containers"`
+
+	Cells []string `json:"cells"`
+
+	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
 }
 
 // VitessShardStatus defines the observed state of VitessShard

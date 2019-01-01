@@ -32,12 +32,7 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
-			Lockserver: &vitessv1alpha2.VitessLockserver{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "new",
-					Namespace: namespace,
-				},
-			},
+			Lockserver: &vitessv1alpha2.VitessLockserverSpec{},
 			LockserverRef: &corev1.LocalObjectReference{
 				Name: "exists",
 			},
