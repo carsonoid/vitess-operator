@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -526,6 +527,10 @@ func getStatefulSetForTablet(vs *vitessv1alpha2.VitessShard, vt *vitessv1alpha2.
 		},
 	}
 
+	// setup volume requests
+	volumeRequests := make(corev1.ResourceList)
+	volumeRequests[corev1.ResourceStorage] = resource.MustParse("10Gi")
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vs.GetName(), // TODO gen name from: cellName + keyspaceName + keyrangeString + type
@@ -538,6 +543,9 @@ func getStatefulSetForTablet(vs *vitessv1alpha2.VitessShard, vt *vitessv1alpha2.
 			Replicas:            vs.GetTabletReplicas(vt, 0),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selfLabels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			},
 			ServiceName: "vttablet",
 			Template: corev1.PodTemplateSpec{
@@ -565,6 +573,19 @@ func getStatefulSetForTablet(vs *vitessv1alpha2.VitessShard, vt *vitessv1alpha2.
 						RunAsUser: getInt64Ptr(1000),
 					},
 					TerminationGracePeriodSeconds: getInt64Ptr(60000000),
+				},
+			},
+			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "vtdataroot",
+					},
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources: corev1.ResourceRequirements{
+							Requests: volumeRequests,
+						},
+					},
 				},
 			},
 		},
