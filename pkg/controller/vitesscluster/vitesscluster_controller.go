@@ -234,7 +234,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterKeyspaces(client client.Client,
 		// Run it through the controller's reconcile func
 		// Run it through the controller's reconcile func
 		keyspaceReconciler := keyspace_controller.NewReconciler(r.client, r.scheme)
-		recResult, recErr := keyspaceReconciler.ReconcileObject(client, request, vk, reqLogger)
+		recResult, recErr := keyspaceReconciler.ReconcileObject(client, request, vk, vc, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vc.Spec.Keyspaces[keyspaceName] = *vk.Spec.DeepCopy()

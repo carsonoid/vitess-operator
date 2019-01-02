@@ -5,7 +5,7 @@ metadata:
   name: simple
 spec:
   shards:
-    X-X:
+    x-x:
       tablets:
         uswest-101:
           tabletId: 101

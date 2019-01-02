@@ -97,7 +97,7 @@ func (r *ReconcileVitessShard) Reconcile(request reconcile.Request) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
-	rr, err := r.ReconcileObject(r.client, request, instance, reqLogger)
+	rr, err := r.ReconcileObject(r.client, request, instance, nil, reqLogger)
 
 	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "Failed to update VitessShard status.")
@@ -108,25 +108,34 @@ func (r *ReconcileVitessShard) Reconcile(request reconcile.Request) (reconcile.R
 }
 
 // ReconcileObject does all the actual reconcile work
-func (r *ReconcileVitessShard) ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessShard) ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessShard, parent metav1.Object, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 	reqLogger.Info("Reconciling VitessShard")
 
-	result, err := r.ReconcileClusterTablets(client, request, instance, upstreamLog)
+	// if no upstream parent, look at me, i am the parent now
+	updateStatus := false
+	if parent == nil {
+		parent = instance
+		updateStatus = true
+	}
+
+	result, err := r.ReconcileClusterTablets(client, request, instance, parent, upstreamLog)
 	if err != nil || result.Requeue {
 		return result, err
 	}
 
-	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
-		reqLogger.Error(err, "Failed to update VitessShard")
-		return reconcile.Result{}, err
+	if updateStatus {
+		if err := r.client.Update(context.TODO(), instance); err != nil {
+			reqLogger.Error(err, "Failed to update VitessShard")
+			return reconcile.Result{}, err
+		}
 	}
 
 	instance.Status.State = "Ready"
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessShard) ReconcileClusterTablets(client client.Client, request reconcile.Request, vs *vitessv1alpha2.VitessShard, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessShard) ReconcileClusterTablets(client client.Client, request reconcile.Request, vs *vitessv1alpha2.VitessShard, parent metav1.Object, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
 	// Handle embedded tablets
@@ -157,11 +166,11 @@ func (r *ReconcileVitessShard) ReconcileClusterTablets(client client.Client, req
 
 		// Each embedded tablet should result in a StatefulSet
 		found := &appsv1.StatefulSet{}
-		err := client.Get(context.TODO(), types.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}, found)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: vs.GetName(), Namespace: vs.GetNamespace()}, found)
 		if err != nil && errors.IsNotFound(err) {
 			ss := getStatefulSetForTablet(vs, vt, reqLogger)
-			controllerutil.SetControllerReference(vs, ss, r.scheme)
-			// reqLogger.Info(fmt.Sprintf("StatefulSet: %#v", ss))
+			controllerutil.SetControllerReference(parent, ss, r.scheme)
+			// reqLogger.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
 			err = client.Create(context.TODO(), ss)
 			if err != nil {
 				reqLogger.Error(err, "failed to create new StatefulSet", "StatefulSet.Namespace", ss.Namespace, "StatefulSet.Name", ss.Name)
@@ -174,7 +183,7 @@ func (r *ReconcileVitessShard) ReconcileClusterTablets(client client.Client, req
 			return reconcile.Result{}, err
 		}
 
-		// Split and store the spec and status in the parent VitessCluster
+		// Split and store the spec and status in the parent Shard
 		vs.Spec.Tablets[tabletName] = *vt.Spec.DeepCopy()
 		vs.Status.Tablets[tabletName] = vt.Status.DeepCopy()
 

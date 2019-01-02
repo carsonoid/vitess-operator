@@ -94,7 +94,7 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	rr, err := r.ReconcileObject(r.client, request, instance, reqLogger)
+	rr, err := r.ReconcileObject(r.client, request, instance, instance, reqLogger)
 
 	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
 		reqLogger.Error(err, "Failed to update VitessKeyspace status.")
@@ -105,11 +105,16 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 }
 
 // ReconcileObject does all the actual reconcile work
-func (r *ReconcileVitessKeyspace) ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessKeyspace) ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessKeyspace, parent metav1.Object, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 	reqLogger.Info("Reconciling VitessKeyspace")
 
-	result, err := r.ReconcileClusterShards(client, request, instance, upstreamLog)
+	// if no upstream parent, look at me, i am the parent now
+	if parent == nil {
+		parent = instance
+	}
+
+	result, err := r.ReconcileClusterShards(client, request, instance, parent, upstreamLog)
 	if err != nil || result.Requeue {
 		return result, err
 	}
@@ -119,7 +124,7 @@ func (r *ReconcileVitessKeyspace) ReconcileObject(client client.Client, request 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessKeyspace) ReconcileClusterShards(client client.Client, request reconcile.Request, vk *vitessv1alpha2.VitessKeyspace, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessKeyspace) ReconcileClusterShards(client client.Client, request reconcile.Request, vk *vitessv1alpha2.VitessKeyspace, parent metav1.Object, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
 	// Handle embedded keyspaces
@@ -147,7 +152,7 @@ func (r *ReconcileVitessKeyspace) ReconcileClusterShards(client client.Client, r
 
 		// Run it through the controller's reconcile func
 		shardReconciler := shard_controller.NewReconciler(r.client, r.scheme)
-		recResult, recErr := shardReconciler.ReconcileObject(client, request, vs, reqLogger)
+		recResult, recErr := shardReconciler.ReconcileObject(client, request, vs, parent, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
 		vk.Spec.Shards[shardName] = *vs.Spec.DeepCopy()
