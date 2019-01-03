@@ -22,11 +22,15 @@ type VitessTabletSpec struct {
 
 	Datastore TabletDatastore `json:"datastore"`
 
-	Containers TabletContainers `json:"containers"`
+	Containers *TabletContainers `json:"containers"`
 
 	VolumeClaim *corev1.PersistentVolumeClaimVolumeSource `json:"volumeclaim, omitempty"`
 
 	Credentials *TabletCredentials `json:"credentials,omitempty"`
+
+	// parents is unexported on purpose. It is only used during controller processing and never
+	// stored in K8s
+	parentSet VitessTabletParentSet
 }
 
 type TabletType string
@@ -54,11 +58,6 @@ const (
 
 const TabletDatastoreTypeDefault TabletDatastoreType = TabletDatastoreTypeLocal
 
-type TabletContainers struct {
-	VTTablet VTContainer `json:"vttablet"`
-	MySQL    VTContainer `json:"mysql"`
-}
-
 type TabletCredentials struct {
 	// SecretRef points a Secret resource which contains the credentials
 	// +optional
@@ -68,6 +67,13 @@ type TabletCredentials struct {
 // VitessTabletStatus defines the observed state of VitessTablet
 type VitessTabletStatus struct {
 	State string `json:"state,omitempty"`
+}
+
+type VitessTabletParentSet struct {
+	Cluster  *VitessCluster
+	Cell     *VitessCell
+	Keyspace *VitessKeyspace
+	Shard    *VitessShard
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

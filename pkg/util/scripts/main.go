@@ -1,7 +1,7 @@
-package vitessshard
+package scripts
 
 var (
-	dbContainerPrestop = `
+  DBContainerPrestop = `
 set -x
 
 # block shutting down mysqlctld until vttablet shuts down first
@@ -18,7 +18,7 @@ until [ $VTTABLET_GONE ]; do
 done
 `
 
-	dbContainerStart = `
+  DBContainerStart = `
 set -ex
 if [ "$VT_DB_FLAVOR" = "percona" ]; then
   MYSQL_FLAVOR=Percona
@@ -56,7 +56,7 @@ END_OF_COMMAND
 )
 `
 
-	tabletContainerStart = `
+  TabletContainerStart = `
 set -ex
 
 if [ "$VT_DB_FLAVOR" = "percona" ]; then
@@ -102,7 +102,7 @@ eval exec /vt/bin/vttablet $(cat <<END_OF_COMMAND
 )
 `
 
-	tabletContainerPrestop = `
+  TabletContainerPrestop = `
 set -x
 
 VTCTLD_SVC=vtctld.default:15999
@@ -156,7 +156,7 @@ done
 /vt/bin/vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC DeleteTablet $current_alias
 `
 
-	initMySQL = `
+  InitMySQL = `
 set -ex
 # set up the directories vitess needs
 mkdir -p /vttmp/bin
@@ -176,7 +176,7 @@ touch /vtdataroot/tabletdata/general.log
 rm -f /vtdataroot/tabletdata/mysql.sock
 `
 
-	initVTTablet = `
+  InitVTTablet = `
 set -ex
 # Split pod name (via hostname) into prefix and ordinal index.
 hostname=$(hostname -s)

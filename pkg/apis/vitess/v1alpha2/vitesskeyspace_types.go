@@ -20,11 +20,6 @@ type VitessBatchOptions struct {
 	Count int64 `json:"count"`
 }
 
-type VitessContainerOptions struct {
-	VTTablet string `json:"vttablet"`
-	MySQL    string `json:"mysql"`
-}
-
 // VitessKeyspaceStatus defines the observed state of VitessKeyspace
 type VitessKeyspaceStatus struct {
 	State string `json:"state,omitempty"`

@@ -43,10 +43,15 @@ const (
 	ResourceSelectorOpDoesNotExist ResourceSelectorOperator = "DoesNotExist"
 )
 
+type TabletContainers struct {
+	VTTablet *VTContainer `json:"vttablet"`
+	MySQL    *VTContainer `json:"mysql"`
+}
+
 type VTContainer struct {
 	Image string `json:"image"`
 
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type KeyRange struct {

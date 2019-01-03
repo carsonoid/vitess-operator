@@ -23,7 +23,7 @@ type VitessShardOptions struct {
 
 	Batch VitessBatchOptions `json:""batch`
 
-	Containers VitessContainerOptions `json:"containers"`
+	Containers *TabletContainers `json:"containers"`
 
 	Cells []string `json:"cells"`
 

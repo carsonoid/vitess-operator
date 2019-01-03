@@ -1,13 +1,10 @@
 package vitesskeyspace
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
 
-	// corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	// "k8s.io/apimachinery/pkg/types"
@@ -80,28 +77,29 @@ func (r *ReconcileVitessKeyspace) Reconcile(request reconcile.Request) (reconcil
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling VitessKeyspace")
 
-	// Fetch the VitessKeyspace instance
-	instance := &vitessv1alpha2.VitessKeyspace{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
+	// // Fetch the VitessKeyspace instance
+	// instance := &vitessv1alpha2.VitessKeyspace{}
+	// err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		// Request object not found, could have been deleted after reconcile request.
+	// 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+	// 		// Return and don't requeue
+	// 		return reconcile.Result{}, nil
+	// 	}
+	// 	// Error reading the object - requeue the request.
+	// 	return reconcile.Result{}, err
+	// }
 
-	rr, err := r.ReconcileObject(r.client, request, instance, instance, reqLogger)
+	// rr, err := r.ReconcileObject(r.client, request, instance, instance, reqLogger)
 
-	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
-		reqLogger.Error(err, "Failed to update VitessKeyspace status.")
-		return reconcile.Result{Requeue: true}, err
-	}
+	// if err := r.client.Status().Update(context.TODO(), instance); err != nil {
+	// 	reqLogger.Error(err, "Failed to update VitessKeyspace status.")
+	// 	return reconcile.Result{Requeue: true}, err
+	// }
 
-	return rr, err
+	return reconcile.Result{}, nil
+	// return rr, err
 }
 
 // ReconcileObject does all the actual reconcile work

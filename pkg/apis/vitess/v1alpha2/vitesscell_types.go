@@ -12,7 +12,7 @@ import (
 type VitessCellSpec struct {
 	Lockserver VitessLockserver `json:"lockserver"`
 
-	Defaults []VTComponent `json:"defaults"`
+	Defaults *VitessShardOptions `json:"defaults"`
 
 	VTGate []VTComponent `json:"vtgate"`
 
