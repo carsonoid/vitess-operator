@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -49,12 +50,16 @@ func (s *VitessTabletSpec) MustSetParentSet(ps VitessTabletParentSet) {
 	}
 }
 
-func (s *VitessTabletSpec) GetParents() *VitessTabletParentSet {
+func (vt *VitessTablet) GetParentSet() *VitessTabletParentSet {
+	return vt.Spec.GetParentSet()
+}
+
+func (s *VitessTabletSpec) GetParentSet() *VitessTabletParentSet {
 	return &s.parentSet
 }
 
 func (vt *VitessTablet) GetFullName() string {
-	return strings.Join([]string{vt.Spec.parentSet.Cluster.GetName(), vt.Spec.parentSet.Cell.GetName(), vt.Spec.parentSet.Keyspace.GetName(), vt.Spec.parentSet.Shard.GetName(), vt.GetName()}, "-")
+	return strings.Join([]string{vt.Spec.parentSet.Cluster.GetName(), vt.Spec.parentSet.Cell.GetName(), vt.Spec.parentSet.Keyspace.GetName(), vt.Spec.parentSet.Shard.GetName(), vt.GetTabletID()}, "-")
 }
 
 func (vt *VitessTablet) GetReplicas() *int32 {
@@ -118,4 +123,8 @@ func (vt *VitessTablet) GetTabletConfig() *VTContainer {
 		}
 	}
 	return nil
+}
+
+func (vt *VitessTablet) GetTabletID() string {
+	return strconv.FormatInt(vt.Spec.TabletID, 10)
 }

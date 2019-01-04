@@ -28,7 +28,7 @@ type VitessTabletSpec struct {
 
 	Credentials *TabletCredentials `json:"credentials,omitempty"`
 
-	// parents is unexported on purpose. It is only used during controller processing and never
+	// parentSet is unexported on purpose. It is only used during controller processing and never
 	// stored in K8s
 	parentSet VitessTabletParentSet
 }

@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -249,24 +250,22 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Re
 func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 
-	tablets := []*vitessv1alpha2.VitessTablet{}
-
-	for keyspaceName, keyspace := range vc.Spec.Keyspaces {
-		for shardName, shard := range keyspace.Shards {
-			for tabletName, tablet := range shard.Tablets {
-				cell, cellFound := vc.Spec.Cells[tablet.Cell]
+	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
+		for shardName, shardSpec := range keyspaceSpec.Shards {
+			for tabletName, tabletSpec := range shardSpec.Tablets {
+				cellSpec, cellFound := vc.Spec.Cells[tabletSpec.Cell]
 				if !cellFound {
-					return reconcile.Result{}, fmt.Errorf("Tablet %s assigned to cell %s that does not exist", tabletName, tablet.Cell)
+					return reconcile.Result{}, fmt.Errorf("Tablet %s assigned to cell %s that does not exist", tabletName, tabletSpec.Cell)
 				}
 
 				// Properly setup/validate the tablet
-				tablet.SetParentSet(vitessv1alpha2.VitessTabletParentSet{
+				tabletSpec.SetParentSet(vitessv1alpha2.VitessTabletParentSet{
 					Cluster:  vc,
-					Cell:     cell,
-					Keyspace: keyspace,
-					Shard:    shard,
+					Cell:     &vitessv1alpha2.VitessCell{ObjectMeta: metav1.ObjectMeta{Name: tabletSpec.Cell}, Spec: cellSpec},
+					Keyspace: &vitessv1alpha2.VitessKeyspace{ObjectMeta: metav1.ObjectMeta{Name: keyspaceName}, Spec: keyspaceSpec},
+					Shard:    &vitessv1alpha2.VitessShard{ObjectMeta: metav1.ObjectMeta{Name: shardName}, Spec: shardSpec},
 				})
-				r.ReconcileClusterTablet(client, request, vc, &tablet, reqLogger)
+				r.ReconcileClusterTablet(client, request, vc, &vitessv1alpha2.VitessTablet{ObjectMeta: metav1.ObjectMeta{Name: tabletName, Namespace: vc.GetNamespace()}, Spec: tabletSpec}, reqLogger)
 			}
 		}
 	}
@@ -274,18 +273,22 @@ func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, r
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessCluster) ReconcileClusterTablet(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, vt *vitessv1alpha2.VitessTabletSpec, upstreamLog logr.Logger) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterTablet(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, vt *vitessv1alpha2.VitessTablet, upstreamLog logr.Logger) (reconcile.Result, error) {
+	reqLogger := upstreamLog.WithValues()
 
 	// Each embedded tablet should result in a StatefulSet
 	found := &appsv1.StatefulSet{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: vs.GetName(), Namespace: vs.GetNamespace()}, found)
+	err := client.Get(context.TODO(), types.NamespacedName{Name: vt.GetFullName(), Namespace: vt.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		ss := getStatefulSetForTablet(vs, vt, reqLogger)
-		controllerutil.SetControllerReference(parent, ss, r.scheme)
+		ss, ssErr := getStatefulSetForTablet(vt, reqLogger)
+		if ssErr != nil {
+			reqLogger.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", vt.GetNamespace(), "VitessTablet.Name", vt.GetNamespace())
+			return reconcile.Result{}, ssErr
+		}
+		controllerutil.SetControllerReference(vc, ss, r.scheme)
 		// reqLogger.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
 		err = client.Create(context.TODO(), ss)
 		if err != nil {
-			reqLogger.Error(err, "failed to create new StatefulSet", "StatefulSet.Namespace", ss.Namespace, "StatefulSet.Name", ss.Name)
 			return reconcile.Result{}, err
 		}
 		// Deployment created successfully - return and requeue

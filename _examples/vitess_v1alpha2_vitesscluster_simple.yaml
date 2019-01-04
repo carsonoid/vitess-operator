@@ -11,33 +11,33 @@ spec:
     etcd3:
       address: etcd-cluster-client:2379
       path: /vitess/global
-  # cellDefaults:
-  #   replicas: 1
-  #   containerSpec:
-  #     image: vitess/lite:v2.1.1
-  #     resources:
-  #       limits: {cpu: "100m", memory: "128Mi"}
-  # # cells is a map of cell names to VitessCellSpecs
-  # cells:
-  #   zone0: {}
-  #   zone1:
-  #     vtgate:
-  #       replicas: 2
-  #         containerSpec:
-  #         image: vitess/lite:beta
-  #     vtworker: {}
-  #     vtctld: {}
-  #     orchestrator: {}
+  # cells is a map of cell names to VitessCellSpecs
+  cells:
+    zone0:
+      lockserver:
+        etcd3:
+          address: etcd-cluster-client:2379
+          path: /vitess/zone0
+      defaults:
+        replicas: 0
+        image: vitess/lite:beta
   # keyspaces is a map of strings to VitessKeyspaceSpecs
   keyspaces:
     unsharded:
       shards:
         x-x:
-           # tablets is a map of strings to VitessTabletSpecs
+          defaults:
+            replicas: 0
+            containers:
+              mysql:
+                image: mysql/mysqld:latest
+              vttablet:
+                image: vitess/lite:beta
+          # tablets is a map of strings to VitessTabletSpecs
           tablets:
-            uswest-101:
+            zone0-101:
               tabletId: 101
-              cell: uswest
+              cell: zone0
     # messagedb:
     #   # shards is a map of strings to VitessShardSpecs
     #   shards:
