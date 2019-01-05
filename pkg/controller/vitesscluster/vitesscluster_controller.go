@@ -11,7 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -152,31 +155,51 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 		vc.Spec.Lockserver = &ls.Spec
 	}
 
-	// Handle Cells
+	// Handle VitessCells
 
-	// TODO: get from selector
-	// if len(vc.Spec.CellSelector) != 0 {
-	// 	matchedCells := []runtime.object{}
-	// 	listOps := client.ListOptions{}
-	// 	listOps.InNamespace(request.Namespace)
-	// 	listOpts.
-	// 	r.client.List(context.TODO(), client.ListOptions{}.MatchingLabels)
-	// }
+	// Get VitessCells from selector
+	if len(vc.Spec.CellSelector) != 0 {
+		cells, err := r.GetCellsFromClusterSelector(vc)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Error getting cells for cluster %s", err)
+		}
+
+		reqLogger.Info(fmt.Sprintf("VitessCluster's cellSelector matched %d cells", len(cells.Items)))
+		for _, cell := range cells.Items {
+			if err := vc.AddCell(&cell); err != nil {
+				return reconcile.Result{}, fmt.Errorf("Error adding matched cell to cluster %s", err)
+			}
+		}
+	}
 
 	// At least one cell must be defined / selected
 	if len(vc.Spec.Cells) == 0 {
-		return reconcile.Result{}, fmt.Errorf("No cells defined")
+		return reconcile.Result{}, fmt.Errorf("No cells defined or selected")
 	}
 
 	// Handle Keyspaces
 
-	// TODO: get from selector
+	// Get VitessKeyspaces from selector
+	if len(vc.Spec.KeyspaceSelector) != 0 {
+		keyspaces, err := r.GetKeyspacesFromClusterSelector(vc)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("Error getting keyspaces for cluster %s", err)
+		}
+
+		reqLogger.Info(fmt.Sprintf("VitessCluster's keyspaceSelector matched %d keyspaces", len(keyspaces.Items)))
+		for _, keyspace := range keyspaces.Items {
+			if err := vc.AddKeyspace(&keyspace); err != nil {
+				return reconcile.Result{}, fmt.Errorf("Error adding matched keyspace to cluster %s", err)
+			}
+		}
+	}
 
 	// At least one keyspace must be defined / selected
 	if len(vc.Spec.Keyspaces) == 0 {
-		return reconcile.Result{}, fmt.Errorf("No keyspaces defined")
+		return reconcile.Result{}, fmt.Errorf("No keyspaces defined or selected")
 	}
 
+	// Validate Lockserver
 	if vc.Spec.Lockserver != nil && vc.Spec.LockserverRef != nil {
 		return reconcile.Result{}, fmt.Errorf("Cannot specify both a lockserver and lockserverRef")
 	}
@@ -712,3 +735,92 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 func getInt64Ptr(id int64) *int64 {
 	return &id
 }
+
+func (r *ReconcileVitessCluster) GetCellsFromClusterSelector(vc *vitessv1alpha2.VitessCluster) (*vitessv1alpha2.VitessCellList, error) {
+	cellSel, err := ResourceSelectorRequirementsAsSelector(vc.Spec.CellSelector)
+	if err == nil {
+		cells := &vitessv1alpha2.VitessCellList{}
+		err := r.client.List(context.TODO(), &client.ListOptions{LabelSelector: cellSel}, cells)
+		if err != nil {
+			return nil, err
+		}
+		return cells, nil
+	}
+	return nil, err
+}
+
+func (r *ReconcileVitessCluster) GetKeyspacesFromClusterSelector(vc *vitessv1alpha2.VitessCluster) (*vitessv1alpha2.VitessKeyspaceList, error) {
+	cellSel, err := ResourceSelectorRequirementsAsSelector(vc.Spec.KeyspaceSelector)
+	if err == nil {
+		cells := &vitessv1alpha2.VitessKeyspaceList{}
+		err := r.client.List(context.TODO(), &client.ListOptions{LabelSelector: cellSel}, cells)
+		if err != nil {
+			return nil, err
+		}
+		return cells, nil
+	}
+	return nil, err
+}
+
+// ResourceSelectorRequirementsAsSelector converts the []ResourceSelector api type into a struct that implements
+// labels.Selector.
+func ResourceSelectorRequirementsAsSelector(rSels []vitessv1alpha2.ResourceSelector) (labels.Selector, error) {
+	if len(rSels) == 0 {
+		return labels.Nothing(), nil
+	}
+
+	selector := labels.NewSelector()
+	for _, expr := range rSels {
+		var op selection.Operator
+		switch expr.Operator {
+		case vitessv1alpha2.ResourceSelectorOpIn:
+			op = selection.In
+		case vitessv1alpha2.ResourceSelectorOpNotIn:
+			op = selection.NotIn
+		case vitessv1alpha2.ResourceSelectorOpExists:
+			op = selection.Exists
+		case vitessv1alpha2.ResourceSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid resource selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, expr.Values)
+		if err != nil {
+			return nil, err
+		}
+		selector = selector.Add(*r)
+	}
+	return selector, nil
+}
+
+// // NodeSelectorRequirementsAsFieldSelector converts the []ResourceSelector core type into a struct that implements
+// // fields.Selector.
+// func NodeSelectorRequirementsAsFieldSelector(rSels []vitessv1alpha2.ResourceSelector) (fields.Selector, error) {
+// 	if len(rSels) == 0 {
+// 		return fields.Nothing(), nil
+// 	}
+
+// 	selectors := []fields.Selector{}
+// 	for _, expr := range rSels {
+// 		switch expr.Operator {
+// 		case vitessv1alpha2.NodeSelectorOpIn:
+// 			if len(expr.Values) != 1 {
+// 				return nil, fmt.Errorf("unexpected number of value (%d) for node field selector operator %q",
+// 					len(expr.Values), expr.Operator)
+// 			}
+// 			selectors = append(selectors, fields.OneTermEqualSelector(expr.Key, expr.Values[0]))
+
+// 		case vitessv1alpha2.NodeSelectorOpNotIn:
+// 			if len(expr.Values) != 1 {
+// 				return nil, fmt.Errorf("unexpected number of value (%d) for node field selector operator %q",
+// 					len(expr.Values), expr.Operator)
+// 			}
+// 			selectors = append(selectors, fields.OneTermNotEqualSelector(expr.Key, expr.Values[0]))
+
+// 		default:
+// 			return nil, fmt.Errorf("%q is not a valid node field selector operator", expr.Operator)
+// 		}
+// 	}
+
+// 	return fields.AndSelectors(selectors...), nil
+// }

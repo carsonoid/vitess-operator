@@ -1,10 +1,10 @@
 package vitesscell
 
 import (
-	"context"
+	// "context"
 
 	// corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	// "k8s.io/apimachinery/pkg/api/errors"
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	// "k8s.io/apimachinery/pkg/types"
@@ -71,19 +71,19 @@ func (r *ReconcileVitessCell) Reconcile(request reconcile.Request) (reconcile.Re
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling VitessCell")
 
-	// Fetch the VitessCell instance
-	instance := &vitessv1alpha2.VitessCell{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
+	// // Fetch the VitessCell instance
+	// instance := &vitessv1alpha2.VitessCell{}
+	// err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		// Request object not found, could have been deleted after reconcile request.
+	// 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+	// 		// Return and don't requeue
+	// 		return reconcile.Result{}, nil
+	// 	}
+	// 	// Error reading the object - requeue the request.
+	// 	return reconcile.Result{}, err
+	// }
 
 	return reconcile.Result{}, nil
 }
