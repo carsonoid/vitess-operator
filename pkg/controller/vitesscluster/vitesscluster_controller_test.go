@@ -1,6 +1,7 @@
 package vitesscluster
 
 import (
+	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -132,15 +133,14 @@ func TestVitessClusterCellSelector(t *testing.T) {
 	// Create a ReconcileVitessCluster object with the scheme and fake client.
 	r := &ReconcileVitessCluster{client: cl, scheme: s}
 
-	// Get cells based on the selector
-	cells, err := r.GetCellsFromClusterSelector(vc)
-
 	// Check the result of reconciliation to make sure it has the desired state.
+	cellList := &vitessv1alpha2.VitessCellList{}
+	err := r.ListFromSelectors(context.TODO(), vc.Spec.CellSelector, cellList)
 	if err != nil {
 		t.Fatalf("Error fetching cells from selector: %s", err)
 	}
 
-	if err == nil && cells == nil {
+	if err == nil && cellList == nil {
 		t.Fatal("No error when getting cells but cell object is nil")
 	}
 
@@ -149,4 +149,105 @@ func TestVitessClusterCellSelector(t *testing.T) {
 	// if len(cells.Items) != 1 {
 	// 	t.Errorf("VitessCluster CellSelector %#v did not match the correct number of cells; got %d, wanted %d", vc.Spec.CellSelector, len(cells.Items), 1)
 	// }
+}
+
+// TestClusterNormalize ensures that selectors work as expected all the way down
+func TestClusterNormalize(t *testing.T) {
+	// Set the logger to development mode for verbose logs.
+	logf.SetLogger(logf.ZapLogger(true))
+
+	var (
+		namespace = "vitess"
+		vcName    = "vitess-operator"
+	)
+
+	// simple labels for all resources
+	labels := map[string]string{
+		"app": "yes",
+	}
+
+	// simple selector for all resources
+	sel := []vitessv1alpha2.ResourceSelector{
+		{
+			Key:      "app",
+			Operator: vitessv1alpha2.ResourceSelectorOpIn,
+			Values:   []string{"yes"},
+		},
+	}
+
+	// Define a minimal cluster which matches one of the cells above
+	vc := &vitessv1alpha2.VitessCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vcName,
+			Namespace: namespace,
+		},
+		Spec: vitessv1alpha2.VitessClusterSpec{
+			CellSelector:     sel,
+			KeyspaceSelector: sel,
+		},
+	}
+
+	// Populate the client with initial data
+	objs := []runtime.Object{
+		&vitessv1alpha2.VitessCell{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "yes",
+				Namespace: namespace,
+				Labels:    labels,
+			},
+		},
+		&vitessv1alpha2.VitessTablet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "yes",
+				Namespace: namespace,
+				Labels:    labels,
+			},
+		},
+		&vitessv1alpha2.VitessShard{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "yes",
+				Namespace: namespace,
+				Labels:    labels,
+			},
+			Spec: vitessv1alpha2.VitessShardSpec{
+				TabletSelector: sel,
+			},
+		},
+		&vitessv1alpha2.VitessKeyspace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "yes",
+				Namespace: namespace,
+				Labels:    labels,
+			},
+			Spec: vitessv1alpha2.VitessKeyspaceSpec{
+				ShardSelector: sel,
+			},
+		},
+		vc,
+	}
+
+	// Register operator types with the runtime scheme.
+	s := scheme.Scheme
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCluster{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessClusterList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCell{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCellList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTablet{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTabletList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShard{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShardList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspace{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
+
+	// Create a fake client to mock API calls.
+	cl := fake.NewFakeClient(objs...)
+
+	// Create a ReconcileVitessCluster object with the scheme and fake client.
+	r := &ReconcileVitessCluster{client: cl, scheme: s}
+
+	// Call the normalize function for the cluster
+	err := r.NormalizeVitessCluster(vc)
+	if err != nil {
+		t.Fatalf("Error normalizing cluster: %s", err)
+	}
 }

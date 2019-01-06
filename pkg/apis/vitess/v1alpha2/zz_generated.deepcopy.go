@@ -520,9 +520,17 @@ func (in *VitessClusterSpec) DeepCopyInto(out *VitessClusterSpec) {
 	}
 	if in.Cells != nil {
 		in, out := &in.Cells, &out.Cells
-		*out = make(map[string]VitessCellSpec, len(*in))
+		*out = make(map[string]*VitessCellSpec, len(*in))
 		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+			var outVal *VitessCellSpec
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(VitessCellSpec)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
 		}
 	}
 	if in.CellSelector != nil {
@@ -534,9 +542,17 @@ func (in *VitessClusterSpec) DeepCopyInto(out *VitessClusterSpec) {
 	}
 	if in.Keyspaces != nil {
 		in, out := &in.Keyspaces, &out.Keyspaces
-		*out = make(map[string]VitessKeyspaceSpec, len(*in))
+		*out = make(map[string]*VitessKeyspaceSpec, len(*in))
 		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+			var outVal *VitessKeyspaceSpec
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(VitessKeyspaceSpec)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
 		}
 	}
 	if in.KeyspaceSelector != nil {
@@ -681,9 +697,17 @@ func (in *VitessKeyspaceSpec) DeepCopyInto(out *VitessKeyspaceSpec) {
 	}
 	if in.Shards != nil {
 		in, out := &in.Shards, &out.Shards
-		*out = make(map[string]VitessShardSpec, len(*in))
+		*out = make(map[string]*VitessShardSpec, len(*in))
 		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+			var outVal *VitessShardSpec
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(VitessShardSpec)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
 		}
 	}
 	if in.ShardSelector != nil {
@@ -946,9 +970,17 @@ func (in *VitessShardSpec) DeepCopyInto(out *VitessShardSpec) {
 	out.KeyRange = in.KeyRange
 	if in.Tablets != nil {
 		in, out := &in.Tablets, &out.Tablets
-		*out = make(map[string]VitessTabletSpec, len(*in))
+		*out = make(map[string]*VitessTabletSpec, len(*in))
 		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+			var outVal *VitessTabletSpec
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = new(VitessTabletSpec)
+				(*in).DeepCopyInto(*out)
+			}
+			(*out)[key] = outVal
 		}
 	}
 	if in.TabletSelector != nil {

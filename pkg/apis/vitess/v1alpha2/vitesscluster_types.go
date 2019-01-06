@@ -14,11 +14,11 @@ type VitessClusterSpec struct {
 
 	LockserverRef *corev1.LocalObjectReference `json:"lockserverRef,omitempty"`
 
-	Cells map[string]VitessCellSpec `json:"cells,omitempty"`
+	Cells map[string]*VitessCellSpec `json:"cells,omitempty"`
 
 	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
 
-	Keyspaces map[string]VitessKeyspaceSpec `json:"keyspaces,omitempty"`
+	Keyspaces map[string]*VitessKeyspaceSpec `json:"keyspaces,omitempty"`
 
 	KeyspaceSelector []ResourceSelector `json:"keyspaceSelector,omitempty"`
 }

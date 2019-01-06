@@ -13,7 +13,7 @@ type VitessShardSpec struct {
 
 	KeyRange KeyRange `json:"keyrange"`
 
-	Tablets map[string]VitessTabletSpec `json:"tablets"`
+	Tablets map[string]*VitessTabletSpec `json:"tablets"`
 
 	TabletSelector []ResourceSelector `json:"tabletSelector,omitempty"`
 }

@@ -159,7 +159,7 @@ func (r *ReconcileVitessShard) ReconcileClusterTablets(client client.Client, req
 		recResult, recErr := tablet_controller.ReconcileObject(client, request, vt, reqLogger)
 
 		// Split and store the spec and status in the parent Shard
-		vs.Spec.Tablets[tabletName] = *vt.Spec.DeepCopy()
+		vs.Spec.Tablets[tabletName] = vt.Spec.DeepCopy()
 		vs.Status.Tablets[tabletName] = vt.Status.DeepCopy()
 
 		// Reque if needed

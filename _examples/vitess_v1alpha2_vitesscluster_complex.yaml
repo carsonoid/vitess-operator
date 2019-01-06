@@ -1,0 +1,85 @@
+---
+## Sample VitessTablet
+apiVersion: vitess.io/v1alpha2
+kind: VitessTablet
+metadata:
+  name: complex-zone0-101
+  labels:
+    cluster: complex
+spec:
+  tabletId: 101
+  cell: complex-zone0
+---
+## Sample VitessShard selecting tablets
+apiVersion: vitess.io/v1alpha2
+kind: VitessShard
+metadata:
+  name: complex-x-x
+  labels:
+    cluster: complex
+spec:
+  defaults:
+    replicas: 0
+    containers:
+      mysql:
+        image: mysql/mysqld:latest
+      vttablet:
+        image: vitess/lite:beta
+  tabletSelector:
+  - key: "cluster"
+    operator: "In"
+    values:
+    - "complex"
+---
+## Sample VitessKeyspace selecting shards
+apiVersion: vitess.io/v1alpha2
+kind: VitessKeyspace
+metadata:
+  name: complex-unsharded
+  labels:
+    cluster: complex
+spec:
+  shardSelector:
+  - key: "cluster"
+    operator: "In"
+    values:
+    - "complex"
+---
+## Sample VitessCell
+apiVersion: vitess.io/v1alpha2
+kind: VitessCell
+metadata:
+  name: complex-zone0
+  labels:
+    cluster: complex
+spec:
+  lockserver:
+    etcd3:
+      address: etcd-cluster-client:2379
+      path: /vitess/zone0
+  defaults:
+    replicas: 0
+    image: vitess/lite:beta
+---
+## Sample VitessCluster selecting cells and keyspaces
+apiVersion: vitess.io/v1alpha2
+kind: VitessCluster
+metadata:
+  name: complex
+  labels:
+    app: vitess
+spec:
+  lockserver:
+    etcd3:
+      address: etcd-cluster-client:2379
+      path: /vitess/global
+  cellSelector:
+  - key: "cluster"
+    operator: "In"
+    values:
+    - "complex"
+  keyspaceSelector:
+  - key: "cluster"
+    operator: "In"
+    values:
+    - "complex"

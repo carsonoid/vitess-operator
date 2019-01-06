@@ -153,7 +153,7 @@ func (r *ReconcileVitessKeyspace) ReconcileClusterShards(client client.Client, r
 		recResult, recErr := shardReconciler.ReconcileObject(client, request, vs, parent, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
-		vk.Spec.Shards[shardName] = *vs.Spec.DeepCopy()
+		vk.Spec.Shards[shardName] = vs.Spec.DeepCopy()
 		vk.Status.Shards[shardName] = vs.Status.DeepCopy()
 
 		// Reque if needed

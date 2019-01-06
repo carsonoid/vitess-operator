@@ -1,11 +1,11 @@
 package vitesstablet
 
 import (
-	"context"
+	// "context"
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	// "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -69,28 +69,29 @@ func (r *ReconcileVitessTablet) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling VitessTablet")
 
-	// Fetch the VitessTablet instance
-	instance := &vitessv1alpha2.VitessTablet{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
+	// // Fetch the VitessTablet instance
+	// instance := &vitessv1alpha2.VitessTablet{}
+	// err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		// Request object not found, could have been deleted after reconcile request.
+	// 		// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+	// 		// Return and don't requeue
+	// 		return reconcile.Result{}, nil
+	// 	}
+	// 	// Error reading the object - requeue the request.
+	// 	return reconcile.Result{}, err
+	// }
 
-	rr, err := ReconcileObject(r.client, request, instance, reqLogger)
+	// rr, err := ReconcileObject(r.client, request, instance, reqLogger)
 
-	if err := r.client.Status().Update(context.TODO(), instance); err != nil {
-		reqLogger.Error(err, "Failed to update VitessTablet status.")
-		return reconcile.Result{Requeue: true}, err
-	}
+	// if err := r.client.Status().Update(context.TODO(), instance); err != nil {
+	// 	reqLogger.Error(err, "Failed to update VitessTablet status.")
+	// 	return reconcile.Result{Requeue: true}, err
+	// }
 
-	return rr, err
+	// return rr, err
+	return reconcile.Result{}, nil
 }
 
 func ReconcileObject(client client.Client, request reconcile.Request, instance *vitessv1alpha2.VitessTablet, upstreamLog logr.Logger) (reconcile.Result, error) {

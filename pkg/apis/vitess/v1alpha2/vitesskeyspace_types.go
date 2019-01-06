@@ -11,7 +11,7 @@ import (
 type VitessKeyspaceSpec struct {
 	Defaults *VitessShardOptions `json:"defaults"`
 
-	Shards map[string]VitessShardSpec `json:"shards"`
+	Shards map[string]*VitessShardSpec `json:"shards"`
 
 	ShardSelector []ResourceSelector `json:"shardSelector,omitempty"`
 }
