@@ -10,7 +10,7 @@ spec:
       name: ""
     spec:
       provision: true
-      etcd3:
+      etcd2:
         address: etcd-cluster-client:2379
         path: /vitess/global
   cells:
@@ -18,7 +18,7 @@ spec:
         name: uswest
       spec:
         lockserver:
-          etcd3:
+          etcd2:
             address: etc-cluster-client:2379
             path: /vitess/uswest
         vtgate:

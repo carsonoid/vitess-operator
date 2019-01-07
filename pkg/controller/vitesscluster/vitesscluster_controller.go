@@ -138,7 +138,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	// Reconciliations
 
 	// Reconcile Lockserver
-	if result, err := r.ReconcileClusterLockserver(request, vc, reqLogger); err != nil {
+	if result, err := r.ReconcileClusterLockserver(request, vc); err != nil {
 		reqLogger.Info("Error Reconciling Lockserver")
 		return result, err
 	} else if result.Requeue {
@@ -147,7 +147,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Reconcile Tablets (StatefulSets)
-	if result, err := r.ReconcileClusterTablets(r.client, request, vc, reqLogger); err != nil {
+	if result, err := r.ReconcileClusterTablets(r.client, request, vc); err != nil {
 		reqLogger.Info("Error Reconciling Keyspaces")
 		return result, err
 	} else if result.Requeue {
@@ -258,10 +258,8 @@ func (r *ReconcileVitessCluster) NormalizeVitessCluster(vc *vitessv1alpha2.Vites
 
 	// Handle VitessTablets from TabletSelector for each shard
 	totalTablets := 0
-	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
-		kss := vc.Spec.Keyspaces[keyspaceName]
-		for shardName, shardSpec := range keyspaceSpec.Shards {
-			vss := kss.Shards[shardName]
+	for _, keyspaceSpec := range vc.Spec.Keyspaces {
+		for _, shardSpec := range keyspaceSpec.Shards {
 			tabletList := &vitessv1alpha2.VitessTabletList{}
 			err := r.ListFromSelectors(context.TODO(), shardSpec.TabletSelector, tabletList)
 			if err != nil {
@@ -270,12 +268,20 @@ func (r *ReconcileVitessCluster) NormalizeVitessCluster(vc *vitessv1alpha2.Vites
 
 			reqLogger.Info(fmt.Sprintf("VitessShard's tabletSelector matched %d tablets", len(tabletList.Items)))
 			for _, tablet := range tabletList.Items {
-				if err := vss.AddTablet(&tablet); err != nil {
+				if err := shardSpec.AddTablet(&tablet); err != nil {
 					return fmt.Errorf("Error adding matched tablets to shard %s", err)
 				}
 			}
 
-			totalTablets = totalTablets + len(vss.Tablets)
+			for tabletName, tabletSpec := range shardSpec.Tablets {
+				_, cellFound := vc.Spec.Cells[tabletSpec.Cell]
+				if !cellFound {
+					return fmt.Errorf("Tablet %s assigned to cell %s that does not exist", tabletName, tabletSpec.Cell)
+				}
+
+			}
+
+			totalTablets = totalTablets + len(shardSpec.Tablets)
 		}
 	}
 
@@ -287,8 +293,8 @@ func (r *ReconcileVitessCluster) NormalizeVitessCluster(vc *vitessv1alpha2.Vites
 	return nil
 }
 
-func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
-	reqLogger := upstreamLog.WithValues()
+func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+	reqLogger := log.WithValues()
 	reqLogger.Info("Reconciling Embedded Lockserver")
 
 	if vc.Spec.Lockserver != nil {
@@ -327,16 +333,15 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Re
 	return reconcile.Result{}, nil
 }
 
-// ReconcileClusterTablets should only be called against a fully-populated and verified VitessCluster object
-func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, upstreamLog logr.Logger) (reconcile.Result, error) {
-	reqLogger := upstreamLog.WithValues()
-
+// GetClusterTablets takes a VitessCluster and returns a list of fully prepared VitessTablets
+func (r *ReconcileVitessCluster) GetClusterTablets(vc *vitessv1alpha2.VitessCluster) (tablets []*vitessv1alpha2.VitessTablet) {
 	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
 		for shardName, shardSpec := range keyspaceSpec.Shards {
 			for tabletName, tabletSpec := range shardSpec.Tablets {
 				cellSpec, cellFound := vc.Spec.Cells[tabletSpec.Cell]
 				if !cellFound {
-					return reconcile.Result{}, fmt.Errorf("Tablet %s assigned to cell %s that does not exist", tabletName, tabletSpec.Cell)
+					// This shouldn't be possible if the cluster has already been normalized.
+					panic(fmt.Sprintf("Tablet %s assigned to cell %s that does not exist.", tabletName, tabletSpec.Cell))
 				}
 
 				// Properly setup/validate the tablet
@@ -346,16 +351,33 @@ func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, r
 					Keyspace: &vitessv1alpha2.VitessKeyspace{ObjectMeta: metav1.ObjectMeta{Name: keyspaceName}, Spec: *keyspaceSpec},
 					Shard:    &vitessv1alpha2.VitessShard{ObjectMeta: metav1.ObjectMeta{Name: shardName}, Spec: *shardSpec},
 				})
-				r.ReconcileClusterTablet(client, request, vc, &vitessv1alpha2.VitessTablet{ObjectMeta: metav1.ObjectMeta{Name: tabletName, Namespace: vc.GetNamespace()}, Spec: *tabletSpec}, reqLogger)
+
+				// add the the return slice
+				tablets = append(tablets, &vitessv1alpha2.VitessTablet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      tabletName,
+						Namespace: vc.GetNamespace(),
+					},
+					Spec: *tabletSpec,
+				})
 			}
 		}
 	}
+	return
+}
 
+// ReconcileClusterTablets should only be called against a fully-populated and verified VitessCluster object
+func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+	for _, tablet := range r.GetClusterTablets(vc) {
+		if result, err := r.ReconcileClusterTablet(client, request, vc, tablet); err != nil {
+			return result, err
+		}
+	}
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessCluster) ReconcileClusterTablet(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, vt *vitessv1alpha2.VitessTablet, upstreamLog logr.Logger) (reconcile.Result, error) {
-	reqLogger := upstreamLog.WithValues()
+func (r *ReconcileVitessCluster) ReconcileClusterTablet(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster, vt *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+	reqLogger := log.WithValues()
 
 	// Each embedded tablet should result in a StatefulSet
 	found := &appsv1.StatefulSet{}
@@ -388,30 +410,30 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 
 	selfLabels := map[string]string{
 		"tabletname": vt.GetName(),
-		"app":        vt.GetClusterName(),
-		"cell":       vt.GetCellName(),
-		"keyspace":   vt.GetKeyspaceName(),
-		"shard":      vt.GetShardName(),
+		"app":        vt.GetCluster().GetName(),
+		"cell":       vt.GetCell().GetName(),
+		"keyspace":   vt.GetKeyspace().GetName(),
+		"shard":      vt.GetShard().GetName(),
 		"component":  "vttablet",
 		"type":       string(vt.Spec.Type),
 	}
 
 	vtgateLabels := map[string]string{
-		"app":       vt.GetClusterName(),
-		"cell":      vt.GetCellName(),
+		"app":       vt.GetCluster().GetName(),
+		"cell":      vt.GetCell().GetName(),
 		"component": "vtgate",
 	}
 
 	sameClusterTabletLabels := map[string]string{
-		"app":       vt.GetClusterName(),
+		"app":       vt.GetCluster().GetName(),
 		"component": "vtgate",
 	}
 
 	sameShardTabletLabels := map[string]string{
-		"app":       vt.GetClusterName(),
-		"cell":      vt.GetCellName(),
-		"keyspace":  vt.GetKeyspaceName(),
-		"shard":     vt.GetShardName(),
+		"app":       vt.GetCluster().GetName(),
+		"cell":      vt.GetCell().GetName(),
+		"keyspace":  vt.GetKeyspace().GetName(),
+		"shard":     vt.GetShard().GetName(),
 		"component": "vtgate",
 	}
 
@@ -457,273 +479,25 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 		},
 	}
 
-	dbName, dbConf := vt.GetDBNameAndConfig()
-	if dbConf == nil {
-		return nil, fmt.Errorf("No database container configuration found")
+	dbContainers, dbInitContainers, err := GetTabletMysqlContainers(vt)
+	if err != nil {
+		return nil, err
 	}
 
-	tabletConf := vt.GetTabletConfig()
-	if tabletConf == nil {
-		return nil, fmt.Errorf("No tablet container configuration found")
+	vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(vt)
+	if err != nil {
+		return nil, err
 	}
 
 	// build containers
-	containers := []corev1.Container{
-		{
-			Name:            dbName,
-			Image:           dbConf.Image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"bash"},
-			Args: []string{
-				"-c",
-				scripts.DBContainerStart,
-			},
-			Lifecycle: &corev1.Lifecycle{
-				PreStop: &corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{
-							"bash",
-							"-c",
-							scripts.DBContainerPrestop,
-						},
-					},
-				},
-			},
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{
-							"mysqladmin",
-							"ping",
-							"-uroot",
-							"--socket=/vtdataroot/tabletdata/mysql.sock",
-						},
-					},
-				},
-				InitialDelaySeconds: 60,
-				TimeoutSeconds:      10,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			Resources: dbConf.Resources,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-				{
-					Name:      "vt",
-					MountPath: "/vt",
-				},
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "VTROOT",
-					Value: "/vt",
-				},
-				{
-					Name:  "VTDATAROOT",
-					Value: "/vtdataroot",
-				},
-				{
-					Name:  "GOBIN",
-					Value: "/vt/bin",
-				},
-				{
-					Name:  "VT_MYSQL_ROOT",
-					Value: "/usr",
-				},
-				{
-					Name:  "PKG_CONFIG_PATH",
-					Value: "/vt/lib",
-				},
-				{
-					Name: "VT_DB_FLAVOR",
-					ValueFrom: &corev1.EnvVarSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							Key: "db.flavor",
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "vitess-cm",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			Name:            "vttablet",
-			Image:           tabletConf.Image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"bash"},
-			Args: []string{
-				"-c",
-				scripts.TabletContainerStart,
-			},
-			Lifecycle: &corev1.Lifecycle{
-				PreStop: &corev1.Handler{
-					Exec: &corev1.ExecAction{
-						Command: []string{
-							"bash",
-							"-c",
-							scripts.TabletContainerPrestop,
-						},
-					},
-				},
-			},
-			ReadinessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/debug/health",
-						Port:   intstr.FromInt(15002),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 60,
-				TimeoutSeconds:      10,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			LivenessProbe: &corev1.Probe{
-				Handler: corev1.Handler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path:   "/debug/status",
-						Port:   intstr.FromInt(15002),
-						Scheme: corev1.URISchemeHTTP,
-					},
-				},
-				InitialDelaySeconds: 60,
-				TimeoutSeconds:      10,
-				PeriodSeconds:       10,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			Ports: []corev1.ContainerPort{
-				{
-					ContainerPort: 15002,
-					Name:          "web",
-					Protocol:      corev1.ProtocolTCP,
-				},
-				{
-					ContainerPort: 16002,
-					Name:          "grpc",
-					Protocol:      corev1.ProtocolTCP,
-				},
-			},
-			Resources: corev1.ResourceRequirements{
-				// Limits:   corev1.ResourceList{},
-				// Requests: corev1.ResourceList{},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "VTROOT",
-					Value: "/vt",
-				},
-				{
-					Name:  "VTDATAROOT",
-					Value: "/vtdataroot",
-				},
-				{
-					Name:  "GOBIN",
-					Value: "/vt/bin",
-				},
-				{
-					Name:  "VT_MYSQL_ROOT",
-					Value: "/usr",
-				},
-				{
-					Name:  "PKG_CONFIG_PATH",
-					Value: "/vt/lib",
-				},
-				{
-					Name: "VT_DB_FLAVOR",
-					ValueFrom: &corev1.EnvVarSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							Key: "db.flavor",
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "vitess-cm",
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			Name:            "logrotate",
-			Image:           "vitess/vttablet:helm-1.0.3",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		},
-	}
-
-	// add log containers
-	for _, logtype := range []string{"general", "error", "slow-query"} {
-		containers = append(containers, corev1.Container{
-			Name:            logtype,
-			Image:           "vitess/vttablet:helm-1.0.3",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "TAIL_FILEPATH",
-					Value: fmt.Sprintf("/vtdataroot/tabletdata/%s.log", logtype),
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		})
-	}
+	containers := []corev1.Container{}
+	containers = append(containers, dbContainers...)
+	containers = append(containers, vttabletContainers...)
 
 	// build initcontainers
-	initContainers := []corev1.Container{
-		{
-			Name:            "init-mysql",
-			Image:           "vitess/vttablet:helm-1.0.3",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"bash"},
-			Args: []string{
-				"-c",
-				scripts.InitMySQL,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		},
-		{
-			Name:            "init-vttablet",
-			Image:           "vitess/vttablet:helm-1.0.3",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Command:         []string{"bash"},
-			Args: []string{
-				"-c",
-				scripts.InitVTTablet,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		},
-	}
+	initContainers := []corev1.Container{}
+	initContainers = append(containers, dbInitContainers...)
+	initContainers = append(containers, vttabletInitContainers...)
 
 	// setup volume requests
 	volumeRequests := make(corev1.ResourceList)
@@ -837,34 +611,288 @@ func ResourceSelectorsAsLabelSelector(rSels []vitessv1alpha2.ResourceSelector) (
 	return selector, nil
 }
 
-// // NodeSelectorRequirementsAsFieldSelector converts the []ResourceSelector core type into a struct that implements
-// // fields.Selector.
-// func NodeSelectorRequirementsAsFieldSelector(rSels []vitessv1alpha2.ResourceSelector) (fields.Selector, error) {
-// 	if len(rSels) == 0 {
-// 		return fields.Nothing(), nil
-// 	}
+func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
+	dbName, dbConf := vt.GetDBNameAndConfig()
+	if dbConf == nil {
+		return containers, initContainers, fmt.Errorf("No database container configuration found")
+	}
 
-// 	selectors := []fields.Selector{}
-// 	for _, expr := range rSels {
-// 		switch expr.Operator {
-// 		case vitessv1alpha2.NodeSelectorOpIn:
-// 			if len(expr.Values) != 1 {
-// 				return nil, fmt.Errorf("unexpected number of value (%d) for node field selector operator %q",
-// 					len(expr.Values), expr.Operator)
-// 			}
-// 			selectors = append(selectors, fields.OneTermEqualSelector(expr.Key, expr.Values[0]))
+	dbScripts := scripts.NewContainerScriptGenerator("mysql", vt)
+	if err := dbScripts.Generate(); err != nil {
+		return containers, initContainers, fmt.Errorf("Error generating DB container scripts: %s", err)
+	}
 
-// 		case vitessv1alpha2.NodeSelectorOpNotIn:
-// 			if len(expr.Values) != 1 {
-// 				return nil, fmt.Errorf("unexpected number of value (%d) for node field selector operator %q",
-// 					len(expr.Values), expr.Operator)
-// 			}
-// 			selectors = append(selectors, fields.OneTermNotEqualSelector(expr.Key, expr.Values[0]))
+	initContainers = append(initContainers,
+		corev1.Container{
+			Name:            "init-mysql",
+			Image:           dbConf.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"bash"},
+			Args: []string{
+				"-c",
+				dbScripts.Init,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+		})
 
-// 		default:
-// 			return nil, fmt.Errorf("%q is not a valid node field selector operator", expr.Operator)
-// 		}
-// 	}
+	containers = append(containers, corev1.Container{
+		Name:            dbName,
+		Image:           dbConf.Image,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"bash"},
+		Args: []string{
+			"-c",
+			dbScripts.Start,
+		},
+		Lifecycle: &corev1.Lifecycle{
+			PreStop: &corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"bash",
+						"-c",
+						dbScripts.PreStop,
+					},
+				},
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				Exec: &corev1.ExecAction{
+					Command: []string{
+						"mysqladmin",
+						"ping",
+						"-uroot",
+						"--socket=/vtdataroot/tabletdata/mysql.sock",
+					},
+				},
+			},
+			InitialDelaySeconds: 60,
+			TimeoutSeconds:      10,
+			PeriodSeconds:       10,
+			SuccessThreshold:    1,
+			FailureThreshold:    3,
+		},
+		Resources: dbConf.Resources,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "vtdataroot",
+				MountPath: "/vtdataroot",
+			},
+			{
+				Name:      "vt",
+				MountPath: "/vt",
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "VTROOT",
+				Value: "/vt",
+			},
+			{
+				Name:  "VTDATAROOT",
+				Value: "/vtdataroot",
+			},
+			{
+				Name:  "GOBIN",
+				Value: "/vt/bin",
+			},
+			{
+				Name:  "VT_MYSQL_ROOT",
+				Value: "/usr",
+			},
+			{
+				Name:  "PKG_CONFIG_PATH",
+				Value: "/vt/lib",
+			},
+			{
+				Name: "VT_DB_FLAVOR",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						Key: "db.flavor",
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "vitess-cm",
+						},
+					},
+				},
+			},
+		},
+	})
 
-// 	return fields.AndSelectors(selectors...), nil
-// }
+	return
+}
+
+func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
+	tabletConf := vt.GetTabletConfig()
+	if tabletConf == nil {
+		err = fmt.Errorf("No database container configuration found")
+		return
+	}
+
+	vtScripts := scripts.NewContainerScriptGenerator("vttablet", vt)
+	if err = vtScripts.Generate(); err != nil {
+		err = fmt.Errorf("Error generating DB container scripts: %s", err)
+		return
+	}
+
+	initContainers = append(initContainers,
+		corev1.Container{
+			Name:            "init-vttablet",
+			Image:           tabletConf.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"bash"},
+			Args: []string{
+				"-c",
+				vtScripts.Init,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+		})
+
+	// add log containers
+	for _, logtype := range []string{"general", "error", "slow-query"} {
+		containers = append(containers, corev1.Container{
+			Name:            logtype,
+			Image:           tabletConf.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Env: []corev1.EnvVar{
+				{
+					Name:  "TAIL_FILEPATH",
+					Value: fmt.Sprintf("/vtdataroot/tabletdata/%s.log", logtype),
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+		})
+	}
+
+	containers = append(containers,
+		corev1.Container{
+			Name:            "logrotate",
+			Image:           tabletConf.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+		},
+		corev1.Container{
+			Name:            "vttablet",
+			Image:           tabletConf.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Command:         []string{"bash"},
+			Args: []string{
+				"-c",
+				vtScripts.Start,
+			},
+			Lifecycle: &corev1.Lifecycle{
+				PreStop: &corev1.Handler{
+					Exec: &corev1.ExecAction{
+						Command: []string{
+							"bash",
+							"-c",
+							vtScripts.PreStop,
+						},
+					},
+				},
+			},
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/debug/health",
+						Port:   intstr.FromInt(15002),
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 60,
+				TimeoutSeconds:      10,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+			},
+			LivenessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path:   "/debug/status",
+						Port:   intstr.FromInt(15002),
+						Scheme: corev1.URISchemeHTTP,
+					},
+				},
+				InitialDelaySeconds: 60,
+				TimeoutSeconds:      10,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
+			},
+			Ports: []corev1.ContainerPort{
+				{
+					ContainerPort: 15002,
+					Name:          "web",
+					Protocol:      corev1.ProtocolTCP,
+				},
+				{
+					ContainerPort: 16002,
+					Name:          "grpc",
+					Protocol:      corev1.ProtocolTCP,
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				// Limits:   corev1.ResourceList{},
+				// Requests: corev1.ResourceList{},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "VTROOT",
+					Value: "/vt",
+				},
+				{
+					Name:  "VTDATAROOT",
+					Value: "/vtdataroot",
+				},
+				{
+					Name:  "GOBIN",
+					Value: "/vt/bin",
+				},
+				{
+					Name:  "VT_MYSQL_ROOT",
+					Value: "/usr",
+				},
+				{
+					Name:  "PKG_CONFIG_PATH",
+					Value: "/vt/lib",
+				},
+				{
+					Name: "VT_DB_FLAVOR",
+					ValueFrom: &corev1.EnvVarSource{
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							Key: "db.flavor",
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "vitess-cm",
+							},
+						},
+					},
+				},
+			},
+		})
+	return
+}

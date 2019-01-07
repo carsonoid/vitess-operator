@@ -7,20 +7,6 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 
-type Lockserver struct {
-	Type    LockserverType `json:"type"`
-	Address string         `json:"address"`
-	Path    string         `json:"path"`
-}
-
-type LockserverType string
-
-const (
-	LockserverTypeEtcd LockserverType = "etcd"
-)
-
-const LockserverTypeDefault LockserverType = LockserverTypeEtcd
-
 type ResourceSelector struct {
 	// The label key that the selector applies to.
 	Key string `json:"key"`

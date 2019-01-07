@@ -11,10 +11,20 @@ import (
 type VitessLockserverSpec struct {
 	Provision bool `json:"provision,omitempty"`
 
-	Etcd3 *Etcd3Lockserver `json:"etcd3,omitempty"`
+	Type LockserverType `json:"type"`
+
+	Etcd2 *Etcd2Lockserver `json:"etcd2,omitempty"`
 }
 
-type Etcd3Lockserver struct {
+type LockserverType string
+
+const (
+	LockserverTypeEtcd2 LockserverType = "etcd2"
+)
+
+const LockserverTypeDefault LockserverType = LockserverTypeEtcd2
+
+type Etcd2Lockserver struct {
 	Address string `json:"address"`
 	Path    string `json:"path"`
 }

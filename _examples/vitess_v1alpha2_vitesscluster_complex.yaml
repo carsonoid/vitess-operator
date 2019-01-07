@@ -54,7 +54,7 @@ metadata:
     cluster: complex
 spec:
   lockserver:
-    etcd3:
+    etcd2:
       address: etcd-cluster-client:2379
       path: /vitess/zone0
   defaults:
@@ -70,7 +70,7 @@ metadata:
     app: vitess
 spec:
   lockserver:
-    etcd3:
+    etcd2:
       address: etcd-cluster-client:2379
       path: /vitess/global
   cellSelector:

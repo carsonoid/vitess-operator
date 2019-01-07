@@ -29,13 +29,13 @@ metadata:
     app: vitess
 spec:
   lockserver:
-    etcd3:
+    etcd2:
       address: etcd-cluster-client:2379
       path: /vitess/global
   cells:
     zone0:
       lockserver:
-        etcd3:
+        etcd2:
           address: etcd-cluster-client:2379
           path: /vitess/zone0
       defaults:

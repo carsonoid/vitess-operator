@@ -2,6 +2,8 @@ package v1alpha2
 
 import (
 	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (vc *VitessCluster) AddCell(cell *VitessCell) error {
@@ -34,4 +36,14 @@ func (vc *VitessCluster) AddKeyspace(keyspace *VitessKeyspace) error {
 	vc.Spec.Keyspaces[keyspace.GetName()] = &keyspace.DeepCopy().Spec
 
 	return nil
+}
+
+func (vc *VitessCluster) GetLockserver() *VitessLockserver {
+	if vc.Spec.Lockserver == nil {
+		return nil
+	}
+	return &VitessLockserver{
+		ObjectMeta: metav1.ObjectMeta{Name: vc.GetName(), Namespace: vc.GetNamespace()},
+		Spec:       *vc.Spec.Lockserver,
+	}
 }

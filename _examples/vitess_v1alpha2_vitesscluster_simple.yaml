@@ -8,15 +8,16 @@ metadata:
 spec:
   # lockserver is an embeded VitessLockserverSpec
   lockserver:
-    etcd3:
-      address: etcd-cluster-client:2379
+    etcd2:
+      address: etcd-cluster-client-test:2379
       path: /vitess/global
   # cells is a map of cell names to VitessCellSpecs
   cells:
     zone0:
       lockserver:
-        etcd3:
-          address: etcd-cluster-client:2379
+        type: etcd2
+        etcd2:
+          address: etcd-cluster-client-test:2379
           path: /vitess/zone0
       defaults:
         replicas: 0

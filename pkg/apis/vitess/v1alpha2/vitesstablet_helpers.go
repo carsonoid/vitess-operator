@@ -58,6 +58,29 @@ func (s *VitessTabletSpec) GetParentSet() *VitessTabletParentSet {
 	return &s.parentSet
 }
 
+func (vt *VitessTablet) GetLockserver() *VitessLockserver {
+	if vt.GetCell().Spec.Lockserver != nil {
+		return vt.GetCell().GetLockserver()
+	}
+	return vt.GetCluster().GetLockserver()
+}
+
+func (vt *VitessTablet) GetCluster() *VitessCluster {
+	return vt.GetParentSet().Cluster
+}
+
+func (vt *VitessTablet) GetCell() *VitessCell {
+	return vt.GetParentSet().Cell
+}
+
+func (vt *VitessTablet) GetKeyspace() *VitessKeyspace {
+	return vt.GetParentSet().Keyspace
+}
+
+func (vt *VitessTablet) GetShard() *VitessShard {
+	return vt.GetParentSet().Shard
+}
+
 func (vt *VitessTablet) GetFullName() string {
 	return strings.Join([]string{vt.Spec.parentSet.Cluster.GetName(), vt.Spec.parentSet.Cell.GetName(), vt.Spec.parentSet.Keyspace.GetName(), vt.Spec.parentSet.Shard.GetName(), vt.GetTabletID()}, "-")
 }
@@ -73,22 +96,6 @@ func (vt *VitessTablet) GetReplicas() *int32 {
 
 	var def int32
 	return &def
-}
-
-func (vt *VitessTablet) GetClusterName() string {
-	return vt.Spec.parentSet.Cluster.GetName()
-}
-
-func (vt *VitessTablet) GetCellName() string {
-	return vt.Spec.parentSet.Cell.GetName()
-}
-
-func (vt *VitessTablet) GetKeyspaceName() string {
-	return vt.Spec.parentSet.Keyspace.GetName()
-}
-
-func (vt *VitessTablet) GetShardName() string {
-	return vt.Spec.parentSet.Shard.GetName()
 }
 
 func (vt *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {

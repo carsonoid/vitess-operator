@@ -4,6 +4,6 @@ kind: VitessLockserver
 metadata:
   name: example-vitesslockserver
 spec:
-  etcd3:
+  etcd2:
     address: etcd-cluster-client:2379
     path: /vitess/global
