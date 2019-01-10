@@ -9,7 +9,7 @@ spec:
   # lockserver is an embeded VitessLockserverSpec
   lockserver:
     etcd2:
-      address: etcd-cluster-client-test:2379
+      address: etcd-global-client:2379
       path: /vitess/global
   # cells is a map of cell names to VitessCellSpecs
   cells:
@@ -17,10 +17,10 @@ spec:
       lockserver:
         type: etcd2
         etcd2:
-          address: etcd-cluster-client-test:2379
+          address: etcd-zone0-client:2379
           path: /vitess/zone0
       defaults:
-        replicas: 0
+        replicas: 1
         image: vitess/lite:beta
   # keyspaces is a map of strings to VitessKeyspaceSpecs
   keyspaces:
@@ -28,10 +28,10 @@ spec:
       shards:
         x-x:
           defaults:
-            replicas: 0
+            replicas: 1
             containers:
               mysql:
-                image: mysql/mysqld:latest
+                image: percona:5.7.23
               vttablet:
                 image: vitess/lite:beta
           # tablets is a map of strings to VitessTabletSpecs

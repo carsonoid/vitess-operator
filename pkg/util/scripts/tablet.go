@@ -98,7 +98,7 @@ set -x
 VTCTLD_SVC=vtctld.default:15999
 VTCTL_EXTRA_FLAGS=()
 
-master_alias_json=$(/vt/bin/vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC GetShard {{ .Shard.Name }}TODO)
+master_alias_json=$(/vt/bin/vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC GetShard {{ .Keyspace.Name }}/{{ .Shard.Name }})
 master_cell=$(jq -r '.master_alias.cell' <<< "$master_alias_json")
 master_uid=$(jq -r '.master_alias.uid' <<< "$master_alias_json")
 master_alias=$master_cell-$master_uid
@@ -123,7 +123,7 @@ MAX_RETRY_COUNT=100000
 until [ $DONE_REPARENTING ]; do
 
   # reparent before shutting down
-  /vt/bin/vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC PlannedReparentShard -keyspace_shard={{ .Shard.Name }}TODO -avoid_master=$current_alias
+  /vt/bin/vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC PlannedReparentShard -keyspace_shard={{ .Keyspace.Name }}/{{ .Shard.Name }} -avoid_master=$current_alias
 
   # if PlannedReparentShard succeeded, then don't retry
   if [ $? -eq 0 ]; then

@@ -496,8 +496,8 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 
 	// build initcontainers
 	initContainers := []corev1.Container{}
-	initContainers = append(containers, dbInitContainers...)
-	initContainers = append(containers, vttabletInitContainers...)
+	initContainers = append(initContainers, dbInitContainers...)
+	initContainers = append(initContainers, vttabletInitContainers...)
 
 	// setup volume requests
 	volumeRequests := make(corev1.ResourceList)
@@ -625,7 +625,7 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 	initContainers = append(initContainers,
 		corev1.Container{
 			Name:            "init-mysql",
-			Image:           dbConf.Image,
+			Image:           "vitess/mysqlctld:latest",
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"bash"},
 			Args: []string{
@@ -761,7 +761,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 	for _, logtype := range []string{"general", "error", "slow-query"} {
 		containers = append(containers, corev1.Container{
 			Name:            logtype,
-			Image:           tabletConf.Image,
+			Image:           "vitess/logtail:helm-1.0.4",
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Env: []corev1.EnvVar{
 				{
