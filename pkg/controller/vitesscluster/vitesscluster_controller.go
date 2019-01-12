@@ -410,7 +410,8 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 
 	selfLabels := map[string]string{
 		"tabletname": vt.GetName(),
-		"app":        vt.GetCluster().GetName(),
+		"app":        "vitess",
+		"cluster":    vt.GetCluster().GetName(),
 		"cell":       vt.GetCell().GetName(),
 		"keyspace":   vt.GetKeyspace().GetName(),
 		"shard":      vt.GetShard().GetName(),
@@ -419,22 +420,25 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 	}
 
 	vtgateLabels := map[string]string{
-		"app":       vt.GetCluster().GetName(),
+		"app":       "vitess",
+		"cluster":   vt.GetCluster().GetName(),
 		"cell":      vt.GetCell().GetName(),
 		"component": "vtgate",
 	}
 
 	sameClusterTabletLabels := map[string]string{
-		"app":       vt.GetCluster().GetName(),
-		"component": "vtgate",
+		"app":       "vitess",
+		"cluster":   vt.GetCluster().GetName(),
+		"component": "vttablet",
 	}
 
 	sameShardTabletLabels := map[string]string{
-		"app":       vt.GetCluster().GetName(),
+		"app":       "vitess",
+		"cluster":   vt.GetCluster().GetName(),
 		"cell":      vt.GetCell().GetName(),
 		"keyspace":  vt.GetKeyspace().GetName(),
 		"shard":     vt.GetShard().GetName(),
-		"component": "vtgate",
+		"component": "vttablet",
 	}
 
 	// Build affinity
@@ -522,9 +526,7 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 			ServiceName: "vttablet",
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      vt.GetName(),
-					Namespace: vt.GetNamespace(),
-					Labels:    selfLabels,
+					Labels: selfLabels,
 				},
 				Spec: corev1.PodSpec{
 					Affinity:       affinity,
@@ -625,7 +627,7 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 	initContainers = append(initContainers,
 		corev1.Container{
 			Name:            "init-mysql",
-			Image:           "vitess/mysqlctld:latest",
+			Image:           "vitess/mysqlctld:helm-1.0.3", // TODO get this from a crd w/default
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"bash"},
 			Args: []string{
@@ -636,6 +638,10 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 				{
 					Name:      "vtdataroot",
 					MountPath: "/vtdataroot",
+				},
+				{
+					Name:      "vt",
+					MountPath: "/vttmp",
 				},
 			},
 		})
@@ -742,7 +748,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 	initContainers = append(initContainers,
 		corev1.Container{
 			Name:            "init-vttablet",
-			Image:           tabletConf.Image,
+			Image:           "vitess/vtctl:helm-1.0.3", // TODO get this from a crd w/default
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"bash"},
 			Args: []string{
@@ -757,39 +763,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 			},
 		})
 
-	// add log containers
-	for _, logtype := range []string{"general", "error", "slow-query"} {
-		containers = append(containers, corev1.Container{
-			Name:            logtype,
-			Image:           "vitess/logtail:helm-1.0.4",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Env: []corev1.EnvVar{
-				{
-					Name:  "TAIL_FILEPATH",
-					Value: fmt.Sprintf("/vtdataroot/tabletdata/%s.log", logtype),
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		})
-	}
-
 	containers = append(containers,
-		corev1.Container{
-			Name:            "logrotate",
-			Image:           tabletConf.Image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "vtdataroot",
-					MountPath: "/vtdataroot",
-				},
-			},
-		},
 		corev1.Container{
 			Name:            "vttablet",
 			Image:           tabletConf.Image,
@@ -893,6 +867,43 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 					},
 				},
 			},
+		},
+		corev1.Container{
+			Name:            "logrotate",
+			Image:           "vitess/logrotate:helm-1.0.4", // TODO get this from a crd w/default
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
 		})
+
+	// add log containers with a slice of filename + containername slices
+	for _, logtype := range [][]string{
+		{"general", "general"},
+		{"error", "error"},
+		{"slow-query", "slow"},
+	} {
+		containers = append(containers, corev1.Container{
+			Name:            logtype[1] + "-log",
+			Image:           "vitess/logtail:helm-1.0.4", // TODO get this from a crd w/default
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Env: []corev1.EnvVar{
+				{
+					Name:  "TAIL_FILEPATH",
+					Value: fmt.Sprintf("/vtdataroot/tabletdata/%s.log", logtype[0]),
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "vtdataroot",
+					MountPath: "/vtdataroot",
+				},
+			},
+		})
+	}
+
 	return
 }

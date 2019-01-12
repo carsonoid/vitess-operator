@@ -87,7 +87,7 @@ eval exec /vt/bin/vttablet $(cat <<END_OF_COMMAND
   -health_check_interval "5s"
   -mysqlctl_socket "/vtdataroot/mysqlctl.sock"
   -enable_replication_reporter
-)
+END_OF_COMMAND)
 {{ end }}
 `
 

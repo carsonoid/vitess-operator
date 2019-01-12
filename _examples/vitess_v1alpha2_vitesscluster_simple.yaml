@@ -13,32 +13,33 @@ spec:
       path: /vitess/global
   # cells is a map of cell names to VitessCellSpecs
   cells:
-    zone0:
+    zone1:
       lockserver:
         type: etcd2
         etcd2:
-          address: etcd-zone0-client:2379
-          path: /vitess/zone0
+          address: etcd-zone1-client:2379
+          path: /vitess/zone1
       defaults:
         replicas: 1
-        image: vitess/lite:beta
+        image: vitess/vttablet:helm-1.0.4
   # keyspaces is a map of strings to VitessKeyspaceSpecs
   keyspaces:
-    unsharded:
+    unsharded-dbname:
       shards:
-        x-x:
+        "0":
           defaults:
             replicas: 1
             containers:
               mysql:
                 image: percona:5.7.23
               vttablet:
-                image: vitess/lite:beta
+                image: vitess/vttablet:helm-1.0.4
           # tablets is a map of strings to VitessTabletSpecs
           tablets:
-            zone0-101:
+            zone1-101:
               tabletId: 101
-              cell: zone0
+              cell: zone1
+              type: replica
     # messagedb:
     #   # shards is a map of strings to VitessShardSpecs
     #   shards:
