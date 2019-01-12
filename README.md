@@ -4,12 +4,15 @@ A Kubernetes operator for Vitess clusters.
 
 ## TODO
 
+- [x] Create a StatefulSet for each VitessTablet in a VitessCluster
+- [x] Create a Job to elect the initial master in each VitessShard
 - [ ] Create vtctld Deployment and Service
 - [ ] Create PodDisruptionBudgets
 - [ ] Create ConfigMap
 - [ ] Create vttablet service
 - [ ] Create vtgate Deployment and Service
-- [ ] Reconcile all the things
+- [ ] Reconcile all the things!
+- [ ] Move shard master election into the operator
 
 ## Dev
 
