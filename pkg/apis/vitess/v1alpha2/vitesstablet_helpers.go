@@ -82,7 +82,18 @@ func (vt *VitessTablet) GetShard() *VitessShard {
 }
 
 func (vt *VitessTablet) GetFullName() string {
-	return strings.Join([]string{vt.Spec.parentSet.Cluster.GetName(), vt.Spec.parentSet.Cell.GetName(), vt.Spec.parentSet.Keyspace.GetName(), vt.Spec.parentSet.Shard.GetName(), vt.GetTabletID()}, "-")
+	return strings.Join([]string{
+		vt.GetScopedName(),
+	}, "-")
+}
+
+func (vt *VitessTablet) GetScopedName() string {
+	return strings.Join([]string{
+		vt.GetCluster().GetName(),
+		vt.GetCell().GetName(),
+		vt.GetKeyspace().GetName(),
+		vt.GetShard().GetName(),
+	}, "-")
 }
 
 func (vt *VitessTablet) GetReplicas() *int32 {

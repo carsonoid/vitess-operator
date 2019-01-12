@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -147,11 +148,11 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Reconcile Tablets (StatefulSets)
-	if result, err := r.ReconcileClusterTablets(r.client, request, vc); err != nil {
-		reqLogger.Info("Error Reconciling Keyspaces")
+	if result, err := r.ReconcileClusterResources(r.client, request, vc); err != nil {
+		reqLogger.Info("Error reconciling cluster member resources")
 		return result, err
 	} else if result.Requeue {
-		reqLogger.Info("Requeue after reconciling Keyspaces")
+		reqLogger.Info("Requeue after reconciling cluster member resources")
 		return result, nil
 	}
 
@@ -366,13 +367,56 @@ func (r *ReconcileVitessCluster) GetClusterTablets(vc *vitessv1alpha2.VitessClus
 	return
 }
 
-// ReconcileClusterTablets should only be called against a fully-populated and verified VitessCluster object
-func (r *ReconcileVitessCluster) ReconcileClusterTablets(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+// ReconcileClusterResources should only be called against a fully-populated and verified VitessCluster object
+func (r *ReconcileVitessCluster) ReconcileClusterResources(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+	reconciledShards := make(map[string]struct{})
 	for _, tablet := range r.GetClusterTablets(vc) {
+		// Create the resources for each tablet
 		if result, err := r.ReconcileClusterTablet(client, request, vc, tablet); err != nil {
 			return result, err
 		}
+
+		// Reconcile each shard once
+		// Right now this is done during tablet reconciliation as a quick-and-dirty
+		// way to have all parent information already set up and available.
+		// TODO refactor to something cleaner
+		if _, ok := reconciledShards[tablet.GetShard().GetName()]; !ok {
+			if result, err := r.ReconcileTabletShard(client, request, tablet); err != nil {
+				return result, err
+			}
+		}
 	}
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileTabletShard(client client.Client, request reconcile.Request, vt *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+	reqLogger := log.WithValues()
+
+	vc := vt.GetCluster()
+	vs := vt.GetShard()
+
+	// Each shard needs a master election job
+	job, jobErr := GetInitShardMasterJob(vt, vt.GetShard(), vt.GetCluster())
+	if jobErr != nil {
+		reqLogger.Error(jobErr, "failed to generate MasterElect Job for VitessShard", "VitessShard.Namespace", vs.GetNamespace(), "VitessShard.Name", vs.GetNamespace())
+		return reconcile.Result{}, jobErr
+	}
+
+	found := &batchv1.Job{}
+	err := client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
+	if err != nil && errors.IsNotFound(err) {
+		controllerutil.SetControllerReference(vc, job, r.scheme)
+		err = client.Create(context.TODO(), job)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		// Job created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "failed to get Job")
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
@@ -564,6 +608,10 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet, upstreamLog logr.L
 			},
 		},
 	}, nil
+}
+
+func getInt32Ptr(id int32) *int32 {
+	return &id
 }
 
 func getInt64Ptr(id int64) *int64 {
@@ -906,4 +954,58 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 	}
 
 	return
+}
+
+func GetInitShardMasterJob(vt *vitessv1alpha2.VitessTablet, vs *vitessv1alpha2.VitessShard, vc *vitessv1alpha2.VitessCluster) (*batchv1.Job, error) {
+	jobName := vt.GetScopedName() + "-init-shard-master"
+
+	scripts := scripts.NewContainerScriptGenerator("init_shard_master", vt)
+	if err := scripts.Generate(); err != nil {
+		return nil, err
+	}
+
+	jobLabels := map[string]string{
+		"app":                "vitess",
+		"cluster":            vt.GetCluster().GetName(),
+		"cell":               vt.GetCell().GetName(),
+		"keyspace":           vt.GetKeyspace().GetName(),
+		"shard":              vt.GetShard().GetName(),
+		"component":          "vttablet",
+		"initShardMasterJob": "true",
+		"job-name":           jobName,
+	}
+
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: vt.GetNamespace(),
+			Labels:    jobLabels,
+		},
+		Spec: batchv1.JobSpec{
+			BackoffLimit: getInt32Ptr(1),
+			Completions:  getInt32Ptr(1),
+			Parallelism:  getInt32Ptr(1),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: jobLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "init-shard-master",
+							Image: "vitess/vtctlclient:helm-1.0.3", // TODO use CRD w/default
+							Command: []string{
+								"bash",
+							},
+							Args: []string{
+								"-c",
+								scripts.Start,
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
+			},
+		},
+	}, nil
 }

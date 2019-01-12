@@ -54,6 +54,11 @@ func (csg *ContainerScriptGenerator) Generate() error {
 		if err != nil {
 			return err
 		}
+	case "init_shard_master":
+		csg.Start, err = csg.getTemplatedScript("init_shard_master", InitShardMaster)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Unsupported container type: %s", csg.ContainerType)
 	}
@@ -77,6 +82,7 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 		Keyspace   *vitessv1alpha2.VitessKeyspace
 		Shard      *vitessv1alpha2.VitessShard
 		Tablet     *vitessv1alpha2.VitessTablet
+		ScopedName string
 	}{
 		csg.Tablet.GetLockserver(),
 		csg.Tablet.GetCluster(),
@@ -84,6 +90,7 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 		csg.Tablet.GetKeyspace(),
 		csg.Tablet.GetShard(),
 		csg.Tablet,
+		csg.Tablet.GetScopedName(),
 	}
 
 	var out bytes.Buffer
