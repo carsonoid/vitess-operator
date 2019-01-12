@@ -14,10 +14,10 @@ A Kubernetes operator for Vitess clusters.
 ## Dev
 
 - Install the [operator sdk](https://github.com/operator-framework/operator-sdk)
-- Configure local kubectl access to a test cluster
-- Create the CRDs in your test cluster
+- Configure local kubectl access to a test Kubernetes cluster
+- Create the CRDs in your Kubernetes cluster
     - `kubectl create -f deploy/crds`
 - Run the operator locally
     - `operator-sdk up local`
-- Create a test cluster
+- Create a test vitesscluster
     - `kubectl create -f _examples/vitess_v1alpha2_vitesscluster_simple.yaml`
