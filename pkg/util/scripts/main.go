@@ -59,6 +59,11 @@ func (csg *ContainerScriptGenerator) Generate() error {
 		if err != nil {
 			return err
 		}
+	case "vtctld":
+		csg.Start, err = csg.getTemplatedScript("vtctld", VtCtldStart)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Unsupported container type: %s", csg.ContainerType)
 	}
