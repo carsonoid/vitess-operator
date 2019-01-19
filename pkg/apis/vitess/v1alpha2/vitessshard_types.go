@@ -16,6 +16,15 @@ type VitessShardSpec struct {
 	Tablets map[string]*VitessTabletSpec `json:"tablets"`
 
 	TabletSelector []ResourceSelector `json:"tabletSelector,omitempty"`
+
+	// parent is unexported on purpose.
+	// It should only be used during processing and never stored
+	parent VitessShardParents
+}
+
+type VitessShardParents struct {
+	VitessKeyspaceParents
+	Keyspace *VitessKeyspace
 }
 
 type VitessShardOptions struct {

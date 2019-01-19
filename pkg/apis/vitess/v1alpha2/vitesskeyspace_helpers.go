@@ -2,32 +2,52 @@ package v1alpha2
 
 import (
 	"fmt"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// GetEmbeddedShards processes the embedded shard map and returns a slice of shards
+func (keyspace *VitessKeyspace) GetEmbeddedShards() (ret []*VitessShard) {
+	for name, spec := range keyspace.Spec.Shards {
+		ret = append(ret, &VitessShard{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: keyspace.GetNamespace(),
+			},
+			Spec: *spec,
+		})
+	}
+	return
+}
+
+func (keyspace *VitessKeyspace) SetParent(cluster *VitessCluster) {
+	keyspace.Spec.parent.Cluster = cluster
+}
+
+func (keyspace *VitessKeyspace) GetCluster() *VitessCluster {
+	return keyspace.Spec.parent.Cluster
+}
+
 // GetTabletContainers satisfies ConfigProvider
-func (vk *VitessKeyspace) GetTabletContainers() *TabletContainers {
-	if vk.Spec.Defaults != nil {
-		return vk.Spec.Defaults.Containers
+func (keyspace *VitessKeyspace) GetTabletContainers() *TabletContainers {
+	if keyspace.Spec.Defaults != nil {
+		return keyspace.Spec.Defaults.Containers
 	}
 	return nil
 }
 
-func (vk *VitessKeyspace) AddShard(shard *VitessShard) error {
-	return vk.Spec.AddShard(shard)
-}
-
-func (vks *VitessKeyspaceSpec) AddShard(shard *VitessShard) error {
+func (keyspace *VitessKeyspace) EmbedShard(shard *VitessShard) error {
 	// First check the the shard map is initialized
-	if vks.Shards == nil {
-		vks.Shards = make(map[string]*VitessShardSpec)
+	if keyspace.Spec.Shards == nil {
+		keyspace.Spec.Shards = make(map[string]*VitessShardSpec)
 	}
 
 	// Then check to make sure it is not already defined in the
 	// embedded resources
-	if _, exists := vks.Shards[shard.GetName()]; exists {
+	if _, exists := keyspace.Spec.Shards[shard.GetName()]; exists {
 		return fmt.Errorf("Error merging VitessShard %s: Already defined in the VitessKeyspace", shard.GetName())
 	}
-	vks.Shards[shard.GetName()] = &shard.DeepCopy().Spec
+	keyspace.Spec.Shards[shard.GetName()] = &shard.DeepCopy().Spec
 
 	return nil
 }

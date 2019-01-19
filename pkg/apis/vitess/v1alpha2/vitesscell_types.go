@@ -21,6 +21,14 @@ type VitessCellSpec struct {
 	VTCtld []VTComponent `json:"vtctld"`
 
 	Orchestrator []VTComponent `json:"orchestrator"`
+
+	// parent is unexported on purpose.
+	// It should only be used during processing and never stored
+	parent VitessCellParents
+}
+
+type VitessCellParents struct {
+	Cluster *VitessCluster
 }
 
 type VitessCellDefaults struct {

@@ -1,7 +1,7 @@
 package v1alpha2
 
 import (
-	"fmt"
+	// "fmt"
 	"strconv"
 	"strings"
 )
@@ -11,74 +11,63 @@ func (vt *VitessTablet) GetTabletContainers() *TabletContainers {
 	return vt.Spec.Containers
 }
 
-func (p *VitessTabletParentSet) IsValid() (bool, error) {
-	valid := true
-	problems := []string{}
+// func (p *VitessTabletParentSet) IsValid() (bool, error) {
+// 	valid := true
+// 	problems := []string{}
 
-	if p.Cluster == nil {
-		problems = append(problems, "Parent Cluster not set")
-		valid = false
-	}
-	if p.Cell == nil {
-		problems = append(problems, "Parent Cell not set")
-		valid = false
-	}
-	if p.Keyspace == nil {
-		problems = append(problems, "Parent Keyspace not set")
-		valid = false
-	}
-	if p.Shard == nil {
-		problems = append(problems, "Parent Shard not set")
-		valid = false
-	}
+// 	if p.Cluster == nil {
+// 		problems = append(problems, "Parent Cluster not set")
+// 		valid = false
+// 	}
+// 	if p.Cell == nil {
+// 		problems = append(problems, "Parent Cell not set")
+// 		valid = false
+// 	}
+// 	if p.Keyspace == nil {
+// 		problems = append(problems, "Parent Keyspace not set")
+// 		valid = false
+// 	}
+// 	if p.Shard == nil {
+// 		problems = append(problems, "Parent Shard not set")
+// 		valid = false
+// 	}
 
-	return valid, fmt.Errorf(strings.Join(problems, ", "))
-}
+// 	return valid, fmt.Errorf(strings.Join(problems, ", "))
+// }
 
-func (s *VitessTabletSpec) SetParentSet(ps VitessTabletParentSet) error {
-	if valid, err := ps.IsValid(); !valid {
-		return fmt.Errorf("Invalid Parents for VitessTablet: %s", err)
-	}
-	s.parentSet = ps
-	return nil
-}
+func (vt *VitessTablet) SetParents(shard *VitessShard, cell *VitessCell) {
+	vt.Spec.parent.Shard = shard
+	vt.Spec.parent.VitessShardParents = shard.Spec.parent
 
-func (s *VitessTabletSpec) MustSetParentSet(ps VitessTabletParentSet) {
-	err := s.SetParentSet(ps)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (vt *VitessTablet) GetParentSet() *VitessTabletParentSet {
-	return vt.Spec.GetParentSet()
-}
-
-func (s *VitessTabletSpec) GetParentSet() *VitessTabletParentSet {
-	return &s.parentSet
+	vt.Spec.parent.Cell = cell
 }
 
 func (vt *VitessTablet) GetLockserver() *VitessLockserver {
-	if vt.GetCell().Spec.Lockserver != nil {
+	if vt.GetCell() != nil && vt.GetCell().Spec.Lockserver != nil {
 		return vt.GetCell().GetLockserver()
 	}
-	return vt.GetCluster().GetLockserver()
+
+	if vt.GetCluster() != nil && vt.GetCluster().Spec.Lockserver != nil {
+		return vt.GetCluster().GetLockserver()
+	}
+
+	return nil
 }
 
 func (vt *VitessTablet) GetCluster() *VitessCluster {
-	return vt.GetParentSet().Cluster
+	return vt.Spec.parent.Cluster
 }
 
 func (vt *VitessTablet) GetCell() *VitessCell {
-	return vt.GetParentSet().Cell
+	return vt.Spec.parent.Cell
 }
 
 func (vt *VitessTablet) GetKeyspace() *VitessKeyspace {
-	return vt.GetParentSet().Keyspace
+	return vt.Spec.parent.Keyspace
 }
 
 func (vt *VitessTablet) GetShard() *VitessShard {
-	return vt.GetParentSet().Shard
+	return vt.Spec.parent.Shard
 }
 
 func (vt *VitessTablet) GetFullName() string {
@@ -101,8 +90,8 @@ func (vt *VitessTablet) GetReplicas() *int32 {
 		return vt.Spec.Replicas
 	}
 
-	if vt.Spec.parentSet.Shard.Spec.Defaults != nil && vt.Spec.parentSet.Shard.Spec.Defaults.Replicas != nil {
-		return vt.Spec.parentSet.Shard.Spec.Defaults.Replicas
+	if vt.GetShard().Spec.Defaults != nil && vt.GetShard().Spec.Defaults.Replicas != nil {
+		return vt.GetShard().Spec.Defaults.Replicas
 	}
 
 	var def int32
@@ -113,8 +102,8 @@ func (vt *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
 		vt,
-		vt.Spec.parentSet.Shard,
-		vt.Spec.parentSet.Keyspace,
+		vt.Spec.parent.Shard,
+		vt.Spec.parent.Keyspace,
 	}
 
 	for _, p := range providers {
@@ -130,8 +119,8 @@ func (vt *VitessTablet) GetTabletConfig() *VTContainer {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
 		vt,
-		vt.Spec.parentSet.Shard,
-		vt.Spec.parentSet.Keyspace,
+		vt.GetShard(),
+		vt.GetKeyspace(),
 	}
 
 	for _, p := range providers {

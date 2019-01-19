@@ -28,9 +28,15 @@ type VitessTabletSpec struct {
 
 	Credentials *TabletCredentials `json:"credentials,omitempty"`
 
-	// parentSet is unexported on purpose. It is only used during controller processing and never
-	// stored in K8s
-	parentSet VitessTabletParentSet
+	// parent is unexported on purpose.
+	// It should only be used during processing and never stored
+	parent VitessTabletParents
+}
+
+type VitessTabletParents struct {
+	VitessShardParents
+	Shard *VitessShard
+	Cell  *VitessCell
 }
 
 type TabletType string
@@ -67,13 +73,6 @@ type TabletCredentials struct {
 // VitessTabletStatus defines the observed state of VitessTablet
 type VitessTabletStatus struct {
 	State string `json:"state,omitempty"`
-}
-
-type VitessTabletParentSet struct {
-	Cluster  *VitessCluster
-	Cell     *VitessCell
-	Keyspace *VitessKeyspace
-	Shard    *VitessShard
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

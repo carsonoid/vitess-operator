@@ -14,6 +14,14 @@ type VitessKeyspaceSpec struct {
 	Shards map[string]*VitessShardSpec `json:"shards"`
 
 	ShardSelector []ResourceSelector `json:"shardSelector,omitempty"`
+
+	// parent is unexported on purpose.
+	// It should only be used during processing and never stored
+	parent VitessKeyspaceParents
+}
+
+type VitessKeyspaceParents struct {
+	Cluster *VitessCluster
 }
 
 type VitessBatchOptions struct {

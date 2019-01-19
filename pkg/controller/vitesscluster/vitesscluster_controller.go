@@ -13,9 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// "k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
+	// "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/selection"
+	// "k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +30,7 @@ import (
 
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 	lockserver_controller "vitess.io/vitess-operator/pkg/controller/vitesslockserver"
+	"vitess.io/vitess-operator/pkg/normalizer"
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
@@ -118,8 +119,8 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	reqLogger.Info("Reconciling VitessCluster")
 
 	// Fetch the VitessCluster instance
-	vc := &vitessv1alpha2.VitessCluster{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, vc)
+	cluster := &vitessv1alpha2.VitessCluster{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, cluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -131,15 +132,20 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// Normalize handles all nested resources and selectors
-	if err := r.NormalizeVitessCluster(vc); err != nil {
+	// Check
+
+	// Normalize
+	n := normalizer.New(r.client)
+	if err := n.NormalizeCluster(cluster); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Reconciliations
+	// Valdate
+
+	// Reconcile
 
 	// Reconcile Lockserver
-	if result, err := r.ReconcileClusterLockserver(request, vc); err != nil {
+	if result, err := r.ReconcileClusterLockserver(request, cluster); err != nil {
 		reqLogger.Info("Error Reconciling Lockserver")
 		return result, err
 	} else if result.Requeue {
@@ -148,7 +154,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	// Reconcile Tablets (StatefulSets)
-	if result, err := r.ReconcileClusterResources(r.client, request, vc); err != nil {
+	if result, err := r.ReconcileClusterResources(r.client, request, cluster); err != nil {
 		reqLogger.Info("Error reconciling cluster member resources")
 		return result, err
 	} else if result.Requeue {
@@ -159,139 +165,6 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	// Nothing to do - don't reqeue
 	reqLogger.Info("Skip reconcile: all managed services in sync")
 	return reconcile.Result{}, nil
-}
-
-func (r *ReconcileVitessCluster) NormalizeVitessCluster(vc *vitessv1alpha2.VitessCluster) error {
-	reqLogger := log.WithValues()
-
-	// Handle Lockserver
-
-	// Sanity check: If both Lockserver and LockserverRef are defined, error without requeue
-	if vc.Spec.Lockserver != nil && vc.Spec.LockserverRef != nil {
-		return fmt.Errorf("Cannot specify both a lockserver and lockserverRef")
-	}
-
-	// Populate the embedded lockserver spec from Ref if given
-	if vc.Spec.LockserverRef != nil {
-		ls := &vitessv1alpha2.VitessLockserver{}
-		err := r.client.Get(context.TODO(), types.NamespacedName{Name: vc.Spec.LockserverRef.Name, Namespace: vc.GetNamespace()}, ls)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// If the referenced Lockserver is not found, error out witout requeue, requeue will happen the next time a lockserver is added/updated
-				return fmt.Errorf("Lockserver referenced by lockserverRef %s not found", vc.Spec.LockserverRef.Name)
-			}
-			return err
-		}
-
-		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
-		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
-		vc.Spec.Lockserver = &ls.Spec
-	}
-
-	// Handle VitessCells
-
-	// Get VitessCells from selector
-	if len(vc.Spec.CellSelector) != 0 {
-		cellList := &vitessv1alpha2.VitessCellList{}
-		if err := r.ListFromSelectors(context.TODO(), vc.Spec.KeyspaceSelector, cellList); err != nil {
-			return fmt.Errorf("Error getting cells for cluster %s", err)
-		}
-
-		reqLogger.Info(fmt.Sprintf("VitessCluster's cellSelector matched %d cells", len(cellList.Items)))
-		for _, cell := range cellList.Items {
-			if err := vc.AddCell(&cell); err != nil {
-				return fmt.Errorf("Error adding matched cell to cluster %s", err)
-			}
-		}
-	}
-
-	// At least one cell must be defined / selected
-	if len(vc.Spec.Cells) == 0 {
-		return fmt.Errorf("No cells defined or selected")
-	}
-
-	// Handle Keyspaces
-
-	// Get VitessKeyspaces from selector
-	if len(vc.Spec.KeyspaceSelector) != 0 {
-		keyspaceList := &vitessv1alpha2.VitessKeyspaceList{}
-		if err := r.ListFromSelectors(context.TODO(), vc.Spec.KeyspaceSelector, keyspaceList); err != nil {
-			return fmt.Errorf("Error getting keyspaces for cluster %s", err)
-		}
-
-		reqLogger.Info(fmt.Sprintf("VitessCluster's keyspaceSelector matched %d keyspaces", len(keyspaceList.Items)))
-		for _, keyspace := range keyspaceList.Items {
-			if err := vc.AddKeyspace(&keyspace); err != nil {
-				return fmt.Errorf("Error adding matched keyspace to cluster %s", err)
-			}
-		}
-	}
-
-	// At least one keyspace must be defined / selected
-	if len(vc.Spec.Keyspaces) == 0 {
-		return fmt.Errorf("No keyspaces defined or selected")
-	}
-
-	// Handle VitessShards from ShardSelector for each keyspace
-	totalShards := 0
-	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
-		kss := vc.Spec.Keyspaces[keyspaceName]
-		shardList := &vitessv1alpha2.VitessShardList{}
-		err := r.ListFromSelectors(context.TODO(), keyspaceSpec.ShardSelector, shardList)
-		if err != nil {
-			return fmt.Errorf("Error getting shards for keyspace %s", err)
-		}
-
-		reqLogger.Info(fmt.Sprintf("VitessKeyspace's shardSelector matched %d shards", len(shardList.Items)))
-		for _, shard := range shardList.Items {
-			if err := kss.AddShard(&shard); err != nil {
-				return fmt.Errorf("Error adding matched shard to keyspace %s", err)
-			}
-		}
-
-		totalShards = totalShards + len(kss.Shards)
-	}
-
-	// At least one keyspace must be defined / selected
-	if totalShards == 0 {
-		return fmt.Errorf("No shards defined or selected")
-	}
-
-	// Handle VitessTablets from TabletSelector for each shard
-	totalTablets := 0
-	for _, keyspaceSpec := range vc.Spec.Keyspaces {
-		for _, shardSpec := range keyspaceSpec.Shards {
-			tabletList := &vitessv1alpha2.VitessTabletList{}
-			err := r.ListFromSelectors(context.TODO(), shardSpec.TabletSelector, tabletList)
-			if err != nil {
-				return fmt.Errorf("Error getting tablets for shard %s", err)
-			}
-
-			reqLogger.Info(fmt.Sprintf("VitessShard's tabletSelector matched %d tablets", len(tabletList.Items)))
-			for _, tablet := range tabletList.Items {
-				if err := shardSpec.AddTablet(&tablet); err != nil {
-					return fmt.Errorf("Error adding matched tablets to shard %s", err)
-				}
-			}
-
-			for tabletName, tabletSpec := range shardSpec.Tablets {
-				_, cellFound := vc.Spec.Cells[tabletSpec.Cell]
-				if !cellFound {
-					return fmt.Errorf("Tablet %s assigned to cell %s that does not exist", tabletName, tabletSpec.Cell)
-				}
-
-			}
-
-			totalTablets = totalTablets + len(shardSpec.Tablets)
-		}
-	}
-
-	// At least one tablet must be defined / selected
-	if totalTablets == 0 {
-		return fmt.Errorf("No tablets defined or selected")
-	}
-
-	return nil
 }
 
 func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
@@ -334,44 +207,11 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Re
 	return reconcile.Result{}, nil
 }
 
-// GetClusterTablets takes a VitessCluster and returns a list of fully prepared VitessTablets
-func (r *ReconcileVitessCluster) GetClusterTablets(vc *vitessv1alpha2.VitessCluster) (tablets []*vitessv1alpha2.VitessTablet) {
-	for keyspaceName, keyspaceSpec := range vc.Spec.Keyspaces {
-		for shardName, shardSpec := range keyspaceSpec.Shards {
-			for tabletName, tabletSpec := range shardSpec.Tablets {
-				cellSpec, cellFound := vc.Spec.Cells[tabletSpec.Cell]
-				if !cellFound {
-					// This shouldn't be possible if the cluster has already been normalized.
-					panic(fmt.Sprintf("Tablet %s assigned to cell %s that does not exist.", tabletName, tabletSpec.Cell))
-				}
-
-				// Properly setup/validate the tablet
-				tabletSpec.SetParentSet(vitessv1alpha2.VitessTabletParentSet{
-					Cluster:  vc,
-					Cell:     &vitessv1alpha2.VitessCell{ObjectMeta: metav1.ObjectMeta{Name: tabletSpec.Cell}, Spec: *cellSpec},
-					Keyspace: &vitessv1alpha2.VitessKeyspace{ObjectMeta: metav1.ObjectMeta{Name: keyspaceName}, Spec: *keyspaceSpec},
-					Shard:    &vitessv1alpha2.VitessShard{ObjectMeta: metav1.ObjectMeta{Name: shardName}, Spec: *shardSpec},
-				})
-
-				// add the the return slice
-				tablets = append(tablets, &vitessv1alpha2.VitessTablet{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      tabletName,
-						Namespace: vc.GetNamespace(),
-					},
-					Spec: *tabletSpec,
-				})
-			}
-		}
-	}
-	return
-}
-
 // ReconcileClusterResources should only be called against a fully-populated and verified VitessCluster object
 func (r *ReconcileVitessCluster) ReconcileClusterResources(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
 	reconciledShards := make(map[string]struct{})
 	reconciledCells := make(map[string]struct{})
-	for _, tablet := range r.GetClusterTablets(vc) {
+	for _, tablet := range vc.GetEmbeddedTablets() {
 		// Create the resources for each tablet
 		if result, err := r.ReconcileClusterTablet(client, request, vc, tablet); err != nil {
 			return result, err
@@ -632,49 +472,6 @@ func getInt32Ptr(id int32) *int32 {
 
 func getInt64Ptr(id int64) *int64 {
 	return &id
-}
-
-func (r *ReconcileVitessCluster) ListFromSelectors(ctx context.Context, rSels []vitessv1alpha2.ResourceSelector, retList runtime.Object) error {
-	labelSelector, err := ResourceSelectorsAsLabelSelector(rSels)
-	if err == nil {
-		err := r.client.List(ctx, &client.ListOptions{LabelSelector: labelSelector}, retList)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	return err
-}
-
-// ResourceSelectorsAsLabelSelector converts the []ResourceSelector api type into a struct that implements
-// labels.Selector.
-func ResourceSelectorsAsLabelSelector(rSels []vitessv1alpha2.ResourceSelector) (labels.Selector, error) {
-	if len(rSels) == 0 {
-		return labels.Nothing(), nil
-	}
-
-	selector := labels.NewSelector()
-	for _, expr := range rSels {
-		var op selection.Operator
-		switch expr.Operator {
-		case vitessv1alpha2.ResourceSelectorOpIn:
-			op = selection.In
-		case vitessv1alpha2.ResourceSelectorOpNotIn:
-			op = selection.NotIn
-		case vitessv1alpha2.ResourceSelectorOpExists:
-			op = selection.Exists
-		case vitessv1alpha2.ResourceSelectorOpDoesNotExist:
-			op = selection.DoesNotExist
-		default:
-			return nil, fmt.Errorf("%q is not a valid resource selector operator", expr.Operator)
-		}
-		r, err := labels.NewRequirement(expr.Key, op, expr.Values)
-		if err != nil {
-			return nil, err
-		}
-		selector = selector.Add(*r)
-	}
-	return selector, nil
 }
 
 func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
