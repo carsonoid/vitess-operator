@@ -99,7 +99,12 @@ func (r *ReconcileVitessLockserver) Reconcile(request reconcile.Request) (reconc
 func ReconcileObject(instance *vitessv1alpha2.VitessLockserver, upstreamLog logr.Logger) (reconcile.Result, error) {
 	reqLogger := upstreamLog.WithValues()
 	reqLogger.Info("Reconciling VitessLockserver")
+
 	// TODO actual reconcile
-	instance.Status.State = "Ready"
+	if instance.Status.State != "Ready" {
+		instance.Status.State = "Ready"
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	return reconcile.Result{}, nil
 }
