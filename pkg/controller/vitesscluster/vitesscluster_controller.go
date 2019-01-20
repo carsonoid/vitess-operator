@@ -96,15 +96,24 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	// Check
-
-	// Normalize
 	n := normalizer.New(r.client)
-	if err := n.NormalizeCluster(cluster); err != nil {
-		return reconcile.Result{}, err
+
+	// Check
+	if err := n.TestClusterSanity(cluster); err != nil {
+		reqLogger.Error(err, "Cluster failed sanity test")
+		return reconcile.Result{Requeue: false}, err
 	}
 
-	// Valdate
+	// Normalize
+	if err := n.NormalizeCluster(cluster); err != nil {
+		return reconcile.Result{Requeue: false}, err
+	}
+
+	// Validate
+	if err := n.ValidateCluster(cluster); err != nil {
+		reqLogger.Error(err, "Cluster failed validation")
+		return reconcile.Result{Requeue: false}, err
+	}
 
 	// Reconcile
 	if result, err := r.ReconcileClusterResources(cluster); err != nil {
