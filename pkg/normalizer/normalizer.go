@@ -7,7 +7,7 @@ import (
 	// appsv1 "k8s.io/api/apps/v1"
 	// batchv1 "k8s.io/api/batch/v1"
 	// corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	// "k8s.io/apimachinery/pkg/api/errors"
 	// "k8s.io/apimachinery/pkg/api/resource"
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// "k8s.io/apimachinery/pkg/fields"
@@ -69,10 +69,7 @@ func (n *Normalizer) NormalizeClusterLockserver(cluster *vitessv1alpha2.VitessCl
 		ls := &vitessv1alpha2.VitessLockserver{}
 		err := n.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Spec.LockserverRef.Name, Namespace: cluster.GetNamespace()}, ls)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				return fmt.Errorf("Lockserver referenced by lockserverRef %s not found", cluster.Spec.LockserverRef.Name)
-			}
-			return err
+			return ClientError
 		}
 
 		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
@@ -86,7 +83,7 @@ func (n *Normalizer) NormalizeClusterLockserver(cluster *vitessv1alpha2.VitessCl
 func (n *Normalizer) NormalizeClusterCells(cluster *vitessv1alpha2.VitessCluster) error {
 	if len(cluster.Spec.CellSelector) != 0 {
 		cellList := &vitessv1alpha2.VitessCellList{}
-		if err := n.ListFromSelectors(context.TODO(), cluster.Spec.KeyspaceSelector, cellList); err != nil {
+		if err := n.ListFromSelectors(context.TODO(), cluster.Spec.CellSelector, cellList); err != nil {
 			return fmt.Errorf("Error getting cells for cluster %s", err)
 		}
 

@@ -1,7 +1,7 @@
 package normalizer
 
 import (
-	// "context"
+	"context"
 	// "strings"
 	"testing"
 
@@ -17,42 +17,254 @@ import (
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 )
 
-// TestClusterNormalize ensures that selectors and parenting work as expected all the way down
-func TestNormalizer(t *testing.T) {
-	// Set the logger to development mode for verbose logs.
-	// logf.SetLogger(logf.ZapLogger(true))
-
-	var (
-		namespace   = "vitess"
-		clusterName = "vitess-operator"
-	)
+var (
+	testNamespace   = "vitess"
+	testClusterName = "vitess-operator"
 
 	// simple labels for all resources
-	labels := map[string]string{
+	testLabels = map[string]string{
 		"app": "yes",
 	}
 
 	// simple selector for all resources
-	sel := []vitessv1alpha2.ResourceSelector{
+	testSel = []vitessv1alpha2.ResourceSelector{
 		{
 			Key:      "app",
 			Operator: vitessv1alpha2.ResourceSelectorOpIn,
 			Values:   []string{"yes"},
 		},
 	}
+)
+
+func TestSanity(t *testing.T) {
+	// Set the logger to development mode for verbose logs.
+	// logf.SetLogger(logf.ZapLogger(true))
 
 	// Define a minimal cluster which matches one of the cells above
 	cluster := &vitessv1alpha2.VitessCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterName,
-			Namespace: namespace,
+			Name:      testClusterName,
+			Namespace: testNamespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
 			LockserverRef: &corev1.LocalObjectReference{
 				Name: "lockserver",
 			},
-			CellSelector:     sel,
-			KeyspaceSelector: sel,
+		},
+	}
+
+	// Populate the client with initial data
+	objs := []runtime.Object{
+		cluster,
+		&vitessv1alpha2.VitessLockserver{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "lockserver",
+				Namespace: testNamespace,
+			},
+		},
+	}
+
+	// Register operator types with the runtime scheme.
+	s := scheme.Scheme
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCluster{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessClusterList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCell{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCellList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTablet{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTabletList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShard{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShardList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspace{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserver{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserverList{})
+
+	// Create a fake client to mock API calls.
+	client := fake.NewFakeClient(objs...)
+
+	n := New(client)
+
+	// Call the normalize function for the cluster
+	if err := n.NormalizeCluster(cluster); err != nil {
+		t.Fatalf("Error normalizing cluster: %s", err)
+	}
+
+	// Ensure that all matched objects were embedded properly
+	if err := n.TestClusterSanity(cluster); err == nil {
+		t.Fatalf("Cluster passed sanity test and shouldn't have")
+	}
+}
+
+func TestValidation(t *testing.T) {
+	// Set the logger to development mode for verbose logs.
+	// logf.SetLogger(logf.ZapLogger(true))
+
+	tests := []struct {
+		obj        runtime.Object
+		missingErr ValidationError
+	}{
+		{
+			&vitessv1alpha2.VitessLockserver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "lockserver",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+			},
+			ValidationErrorNoLockserver,
+		},
+		{
+			&vitessv1alpha2.VitessCell{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cell",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+			},
+			ValidationErrorNoCells,
+		},
+		{
+			&vitessv1alpha2.VitessKeyspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "keyspace",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+				Spec: vitessv1alpha2.VitessKeyspaceSpec{
+					ShardSelector: testSel,
+				},
+			},
+			ValidationErrorNoKeyspaces,
+		},
+		{
+			&vitessv1alpha2.VitessShard{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "shard",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+				Spec: vitessv1alpha2.VitessShardSpec{
+					TabletSelector: testSel,
+				},
+			},
+			ValidationErrorNoShards,
+		},
+		{
+			&vitessv1alpha2.VitessTablet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tablet",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+				Spec: vitessv1alpha2.VitessTabletSpec{
+					TabletID: 101,
+					Cell:     "cell",
+				},
+			},
+			ValidationErrorNoTablets,
+		},
+	}
+
+	// Register operator types with the runtime scheme.
+	s := scheme.Scheme
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCluster{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessClusterList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCell{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessCellList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTablet{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessTabletList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShard{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessShardList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspace{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserver{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserverList{})
+
+	// Create a fake client to mock API calls.
+	client := fake.NewFakeClient()
+
+	n := New(client)
+
+	// loop through and add objs one at a time
+	// Cluster should not be valid until all objs have been added
+	for _, test := range tests {
+		cluster := &vitessv1alpha2.VitessCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testClusterName,
+				Namespace: testNamespace,
+			},
+			Spec: vitessv1alpha2.VitessClusterSpec{
+				CellSelector:     testSel,
+				KeyspaceSelector: testSel,
+			},
+		}
+
+		// handle special case for lockserverRef
+		if test.missingErr != ValidationErrorNoLockserver {
+			cluster.Spec.LockserverRef = &corev1.LocalObjectReference{
+				Name: "lockserver",
+			}
+		}
+
+		// check for expected error when obj is missing
+		if err := n.NormalizeCluster(cluster); err != nil {
+			t.Fatalf("Error normalizing cluster: %s", err)
+		}
+
+		if err := n.ValidateCluster(cluster); err != test.missingErr {
+			t.Fatalf("Wrong error for missing resource, got: '%s'; expected: '%s'", err, test.missingErr)
+		}
+
+		// add obj
+		// t.Logf("Creating obj of kind: %s", test.obj.(metav1.Object).GetName())
+		if err := client.Create(context.Background(), test.obj); err != nil {
+			t.Fatalf("Error creating object: %s", err)
+		}
+
+		// redeclare empty cluster
+		cluster = &vitessv1alpha2.VitessCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testClusterName,
+				Namespace: testNamespace,
+			},
+			Spec: vitessv1alpha2.VitessClusterSpec{
+				LockserverRef: &corev1.LocalObjectReference{
+					Name: "lockserver",
+				},
+				CellSelector:     testSel,
+				KeyspaceSelector: testSel,
+			},
+		}
+
+		// Make sure there is a different error
+		if err := n.NormalizeCluster(cluster); err != nil {
+			t.Fatalf("Error normalizing cluster: %s", err)
+		}
+
+		if err := n.ValidateCluster(cluster); err == test.missingErr {
+			t.Fatalf("Wrong error for missing resource, got: '%s' again; expected new error", err)
+		}
+	}
+
+}
+
+// TestSaneNormalAndValidCluster makes sure that a perfect cluster works as expected
+func TestSaneNormalAndValidCluster(t *testing.T) {
+	// Set the logger to development mode for verbose logs.
+	// logf.SetLogger(logf.ZapLogger(true))
+
+	// Define a minimal cluster which matches one of the cells above
+	cluster := &vitessv1alpha2.VitessCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testClusterName,
+			Namespace: testNamespace,
+		},
+		Spec: vitessv1alpha2.VitessClusterSpec{
+			LockserverRef: &corev1.LocalObjectReference{
+				Name: "lockserver",
+			},
+			CellSelector:     testSel,
+			KeyspaceSelector: testSel,
 		},
 	}
 
@@ -61,42 +273,42 @@ func TestNormalizer(t *testing.T) {
 		&vitessv1alpha2.VitessLockserver{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "lockserver",
-				Namespace: namespace,
-				Labels:    labels,
+				Namespace: testNamespace,
+				Labels:    testLabels,
 			},
 		},
 		&vitessv1alpha2.VitessCell{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cell",
-				Namespace: namespace,
-				Labels:    labels,
+				Namespace: testNamespace,
+				Labels:    testLabels,
 			},
 		},
 		&vitessv1alpha2.VitessKeyspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "keyspace",
-				Namespace: namespace,
-				Labels:    labels,
+				Namespace: testNamespace,
+				Labels:    testLabels,
 			},
 			Spec: vitessv1alpha2.VitessKeyspaceSpec{
-				ShardSelector: sel,
+				ShardSelector: testSel,
 			},
 		},
 		&vitessv1alpha2.VitessShard{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "shard",
-				Namespace: namespace,
-				Labels:    labels,
+				Namespace: testNamespace,
+				Labels:    testLabels,
 			},
 			Spec: vitessv1alpha2.VitessShardSpec{
-				TabletSelector: sel,
+				TabletSelector: testSel,
 			},
 		},
 		&vitessv1alpha2.VitessTablet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "tablet",
-				Namespace: namespace,
-				Labels:    labels,
+				Namespace: testNamespace,
+				Labels:    testLabels,
 			},
 			Spec: vitessv1alpha2.VitessTabletSpec{
 				TabletID: 101,
@@ -139,5 +351,103 @@ func TestNormalizer(t *testing.T) {
 	// Ensure that all matched objects were embedded properly
 	if err := n.ValidateCluster(cluster); err != nil {
 		t.Fatalf("Cluster Sanity Test failed: %s", err)
+	}
+
+	// Test Parenting
+	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
+		shards := keyspace.GetEmbeddedShards()
+		if len(shards) == 0 {
+			t.Fatalf("No embedded shards from keyspace after normalization")
+		}
+
+		for _, shard := range shards {
+			tablets := shard.GetEmbeddedTablets()
+			if len(tablets) == 0 {
+				t.Fatalf("No embedded tablets from shard after normalization")
+			}
+		}
+	}
+
+	// Child tests from the top down
+	lockserver := cluster.GetLockserver()
+	if lockserver == nil {
+		t.Errorf("No embeddded lockserver from cluster after normalization")
+	}
+
+	cells := cluster.GetEmbeddedCells()
+	if len(cells) == 0 {
+		t.Errorf("No embedded cells from cluster after normalization")
+	}
+
+	shards := cluster.GetEmbeddedShards()
+	if len(shards) == 0 {
+		t.Errorf("No embedded shards from cluster after normalization")
+	}
+
+	tablets := cluster.GetEmbeddedTablets()
+	if len(tablets) == 0 {
+		t.Errorf("No embedded tablets from cluster after normalization")
+	}
+
+	keyspaces := cluster.GetEmbeddedKeyspaces()
+	if len(keyspaces) == 0 {
+		t.Errorf("No embedded keyspaces from cluster after normalization")
+	}
+
+	for _, keyspace := range keyspaces {
+		shards := keyspace.GetEmbeddedShards()
+		if len(shards) == 0 {
+			t.Errorf("No embedded shards from keyspace after normalization")
+		}
+
+		for _, shard := range shards {
+			tablets := shard.GetEmbeddedTablets()
+			if len(tablets) == 0 {
+				t.Errorf("No embedded tablets from shard after normalization")
+			}
+		}
+	}
+
+	// Parent tests from the bottom up
+
+	// every tablet should have a parent cell, cluster, keyspace, and shard
+	for _, tablet := range tablets {
+		if tablet.GetCell() == nil {
+			t.Errorf("No parent cell in tablet after normalization")
+		}
+		if tablet.GetCluster() == nil {
+			t.Errorf("No parent cluster in tablet after normalization")
+		}
+		if tablet.GetKeyspace() == nil {
+			t.Errorf("No parent keyspace in tablet after normalization")
+		}
+		if tablet.GetShard() == nil {
+			t.Errorf("No parent shard in tablet after normalization")
+		}
+	}
+
+	// every shard should have a parent keyspace and cluster
+	for _, shard := range shards {
+		if shard.GetKeyspace() == nil {
+			t.Errorf("No parent keyspace in shard after normalization")
+		}
+
+		if shard.GetCluster() == nil {
+			t.Errorf("No parent cluster in shard after normalization")
+		}
+	}
+
+	// every keyspace should have a parent cluster
+	for _, keyspace := range keyspaces {
+		if keyspace.GetCluster() == nil {
+			t.Errorf("No parent cluster in keyspace after normalization")
+		}
+	}
+
+	// every cell should have a parent cluster
+	for _, cell := range cells {
+		if cell.GetCluster() == nil {
+			t.Errorf("No parent cluster in cell after normalization")
+		}
 	}
 }
