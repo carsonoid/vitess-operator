@@ -18,20 +18,18 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileClusterTablet(request reconcile.Request, cluster *vitessv1alpha2.VitessCluster, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
-	reqLogger := log.WithValues()
-
+func (r *ReconcileVitessCluster) ReconcileTablet(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
 	// Each embedded tablet should result in a StatefulSet
 	found := &appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: tablet.GetFullName(), Namespace: tablet.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
 		ss, ssErr := getStatefulSetForTablet(tablet)
 		if ssErr != nil {
-			reqLogger.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
+			log.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
 			return reconcile.Result{}, ssErr
 		}
-		controllerutil.SetControllerReference(cluster, ss, r.scheme)
-		// reqLogger.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
+		controllerutil.SetControllerReference(tablet.GetCluster(), ss, r.scheme)
+		// log.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
 		err = r.client.Create(context.TODO(), ss)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -39,7 +37,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterTablet(request reconcile.Reques
 		// Deployment created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "failed to get StatefulSet")
+		log.Error(err, "failed to get StatefulSet")
 		return reconcile.Result{}, err
 	}
 

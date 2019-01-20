@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -58,4 +59,12 @@ func (shard *VitessShard) GetTabletContainers() *TabletContainers {
 		return shard.Spec.Defaults.Containers
 	}
 	return nil
+}
+
+func (shard *VitessShard) GetScopedName(extra ...string) string {
+	return strings.Join(append(
+		[]string{
+			shard.GetKeyspace().GetScopedName(),
+		},
+		extra...), "-")
 }

@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -108,4 +109,12 @@ func (cluster *VitessCluster) GetCellByID(cellID string) *VitessCell {
 		},
 		Spec: *spec,
 	}
+}
+
+func (cluster *VitessCluster) GetScopedName(extra ...string) string {
+	return strings.Join(append(
+		[]string{
+			cluster.GetName(),
+		},
+		extra...), "-")
 }

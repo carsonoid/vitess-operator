@@ -16,20 +16,18 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Request, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
-	reqLogger := log.WithValues()
-
+func (r *ReconcileVitessCluster) ReconcileCell(cell *vitessv1alpha2.VitessCell) (reconcile.Result, error) {
 	// Each shard needs a master election job
-	deploy, service, deployErr := GetClusterCellVtctld(tablet.GetCluster(), tablet.GetCell(), tablet)
+	deploy, service, deployErr := GetCellVtctldResources(cell)
 	if deployErr != nil {
-		reqLogger.Error(deployErr, "failed to generate Vtctld Deployment for VitessCell", "VitessCell.Namespace", tablet.GetCell().GetNamespace(), "VitessCell.Name", tablet.GetCell().GetNamespace())
+		log.Error(deployErr, "failed to generate Vtctld Deployment for VitessCell", "VitessCell.Namespace", cell.GetNamespace(), "VitessCell.Name", cell.GetNamespace())
 		return reconcile.Result{}, deployErr
 	}
 
 	found := &appsv1.Deployment{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(tablet.GetCluster(), deploy, r.scheme)
+		controllerutil.SetControllerReference(cell.GetCluster(), deploy, r.scheme)
 		err = r.client.Create(context.TODO(), deploy)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -37,14 +35,14 @@ func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Re
 		// Job created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "failed to get Deployment")
+		log.Error(err, "failed to get Deployment")
 		return reconcile.Result{}, err
 	}
 
-	foundScluster := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundScluster)
+	foundCluster := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundCluster)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(tablet.GetCluster(), service, r.scheme)
+		controllerutil.SetControllerReference(cell.GetCluster(), service, r.scheme)
 		err = r.client.Create(context.TODO(), service)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -52,31 +50,31 @@ func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Re
 		// Job created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "failed to get Service")
+		log.Error(err, "failed to get Service")
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func GetClusterCellVtctld(cluster *vitessv1alpha2.VitessCluster, clusterell *vitessv1alpha2.VitessCell, tablet *vitessv1alpha2.VitessTablet) (*appsv1.Deployment, *corev1.Service, error) {
-	name := cluster.GetName() + "-" + clusterell.GetName() + "-vtctld"
+func GetCellVtctldResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment, *corev1.Service, error) {
+	name := cell.GetScopedName("-vtctld")
 
-	scripts := scripts.NewContainerScriptGenerator("vtctld", tablet)
+	scripts := scripts.NewContainerScriptGenerator("vtctld", cell)
 	if err := scripts.Generate(); err != nil {
 		return nil, nil, err
 	}
 
 	labels := map[string]string{
 		"app":       "vitess",
-		"cluster":   tablet.GetCluster().GetName(),
+		"cluster":   cell.GetCluster().GetName(),
 		"component": "vtctld",
 	}
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: cluster.GetNamespace(),
+			Namespace: cell.GetCluster().GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -143,7 +141,7 @@ func GetClusterCellVtctld(cluster *vitessv1alpha2.VitessCluster, clusterell *vit
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: cluster.GetNamespace(),
+			Namespace: cell.GetCluster().GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{

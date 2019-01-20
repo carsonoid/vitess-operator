@@ -5,23 +5,23 @@ import (
 	"fmt"
 	"text/template"
 
-	// corev1 "k8s.io/api/core/v1"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
 )
 
 type ContainerScriptGenerator struct {
 	ContainerType string
-	Tablet        *vitessv1alpha2.VitessTablet
+	Object        runtime.Object
 	Init          string
 	Start         string
 	PreStop       string
 }
 
-func NewContainerScriptGenerator(containerType string, tablet *vitessv1alpha2.VitessTablet) *ContainerScriptGenerator {
+func NewContainerScriptGenerator(containerType string, obj runtime.Object) *ContainerScriptGenerator {
 	return &ContainerScriptGenerator{
 		ContainerType: containerType,
-		Tablet:        tablet,
+		Object:        obj,
 	}
 }
 
@@ -77,25 +77,46 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 		return "", err
 	}
 
+	// if tablet, ok := csg.Object.(*vitessv1alpha2.VitessTablet); ok {
+	// 	return getTemplatedScriptForTablet(name, templateStr)
+	// }
+
+	// if cell, ok := csg.Object.(*vitessv1alpha2.VitessTablet); ok {
+	// 	return getTemplatedScriptForTablet(name, templateStr)
+	// }
+	// }
+
+	// func (csg *ContainerScriptGenerator) getTemplatedScriptForTablet(name string, templateStr string) (string, error) {
+	// Params are different depending on the resource type
+
 	// For simplicity, the tablet and all parent objects are passed to the template.
 	// This is safe while the templates are hard-coded. But if templates are ever made
 	// end-user configurable could would potentially expose too much data and would need to be sanitized
-	params := struct {
-		Lockserver *vitessv1alpha2.VitessLockserver
-		Cluster    *vitessv1alpha2.VitessCluster
-		Cell       *vitessv1alpha2.VitessCell
-		Keyspace   *vitessv1alpha2.VitessKeyspace
-		Shard      *vitessv1alpha2.VitessShard
-		Tablet     *vitessv1alpha2.VitessTablet
-		ScopedName string
-	}{
-		csg.Tablet.GetLockserver(),
-		csg.Tablet.GetCluster(),
-		csg.Tablet.GetCell(),
-		csg.Tablet.GetKeyspace(),
-		csg.Tablet.GetShard(),
-		csg.Tablet,
-		csg.Tablet.GetScopedName(),
+	var params map[string]interface{}
+
+	// Configure tablet params
+	if tablet, ok := csg.Object.(*vitessv1alpha2.VitessTablet); ok {
+		params = map[string]interface{}{
+			"Lockserver": tablet.GetLockserver(),
+			"Cluster":    tablet.GetCluster(),
+			"Cell":       tablet.GetCell(),
+			"Keyspace":   tablet.GetKeyspace(),
+			"Shard":      tablet.GetShard(),
+			"Tablet":     tablet,
+			"ScopedName": tablet.GetScopedName(),
+		}
+	}
+
+	// Configure shard params
+	if shard, ok := csg.Object.(*vitessv1alpha2.VitessShard); ok {
+		params = map[string]interface{}{
+			// "Lockserver": shard.GetLockserver(),
+			"Cluster": shard.GetCluster(),
+			// "Cell":       shard.GetCell(),
+			"Keyspace":   shard.GetKeyspace(),
+			"Shard":      shard,
+			"ScopedName": shard.GetScopedName(),
+		}
 	}
 
 	var out bytes.Buffer

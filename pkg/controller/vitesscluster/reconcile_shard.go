@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -16,51 +15,60 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileTabletShard(client client.Client, request reconcile.Request, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
-	reqLogger := log.WithValues()
+func (r *ReconcileVitessCluster) ReconcileShard(shard *vitessv1alpha2.VitessShard) (reconcile.Result, error) {
+	if r, err := r.ReconcileShardResources(shard); err != nil {
+		return r, err
+	}
 
-	cluster := tablet.GetCluster()
-	shard := tablet.GetShard()
+	// Reconcile all shards
+	for _, tablet := range shard.GetEmbeddedTablets() {
+		if result, err := r.ReconcileTablet(tablet); err != nil {
+			return result, err
+		}
+	}
 
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileShardResources(shard *vitessv1alpha2.VitessShard) (reconcile.Result, error) {
 	// Each shard needs a master election job
-	job, jobErr := GetInitShardMasterJob(tablet, tablet.GetShard(), tablet.GetCluster())
+	job, jobErr := GetShardInitMasterJob(shard)
 	if jobErr != nil {
-		reqLogger.Error(jobErr, "failed to generate MasterElect Job for VitessShard", "VitessShard.Namespace", shard.GetNamespace(), "VitessShard.Name", shard.GetNamespace())
+		log.Error(jobErr, "failed to generate MasterElect Job for VitessShard", "VitessShard.Namespace", shard.GetNamespace(), "VitessShard.Name", shard.GetNamespace())
 		return reconcile.Result{}, jobErr
 	}
 
 	found := &batchv1.Job{}
-	err := client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(cluster, job, r.scheme)
-		err = client.Create(context.TODO(), job)
+		controllerutil.SetControllerReference(shard.GetCluster(), job, r.scheme)
+		err = r.client.Create(context.TODO(), job)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		// Job created successfully - return and requeue
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
-		reqLogger.Error(err, "failed to get Job")
+		log.Error(err, "failed to get Job")
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func GetInitShardMasterJob(tablet *vitessv1alpha2.VitessTablet, shard *vitessv1alpha2.VitessShard, cluster *vitessv1alpha2.VitessCluster) (*batchv1.Job, error) {
-	jobName := tablet.GetScopedName() + "-init-shard-master"
+func GetShardInitMasterJob(shard *vitessv1alpha2.VitessShard) (*batchv1.Job, error) {
+	jobName := shard.GetScopedName("init-shard-master")
 
-	scripts := scripts.NewContainerScriptGenerator("init_shard_master", tablet)
+	scripts := scripts.NewContainerScriptGenerator("init_shard_master", shard)
 	if err := scripts.Generate(); err != nil {
 		return nil, err
 	}
 
 	jobLabels := map[string]string{
 		"app":                "vitess",
-		"cluster":            tablet.GetCluster().GetName(),
-		"cell":               tablet.GetCell().GetName(),
-		"keyspace":           tablet.GetKeyspace().GetName(),
-		"shard":              tablet.GetShard().GetName(),
+		"cluster":            shard.GetCluster().GetName(),
+		"keyspace":           shard.GetKeyspace().GetName(),
+		"shard":              shard.GetName(),
 		"component":          "vttablet",
 		"initShardMasterJob": "true",
 		"job-name":           jobName,
@@ -69,7 +77,7 @@ func GetInitShardMasterJob(tablet *vitessv1alpha2.VitessTablet, shard *vitessv1a
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Namespace: tablet.GetNamespace(),
+			Namespace: shard.GetCluster().GetNamespace(),
 			Labels:    jobLabels,
 		},
 		Spec: batchv1.JobSpec{

@@ -2,6 +2,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -50,4 +51,12 @@ func (keyspace *VitessKeyspace) EmbedShard(shard *VitessShard) error {
 	keyspace.Spec.Shards[shard.GetName()] = &shard.DeepCopy().Spec
 
 	return nil
+}
+
+func (keyspace *VitessKeyspace) GetScopedName(extra ...string) string {
+	return strings.Join(append(
+		[]string{
+			keyspace.GetCluster().GetScopedName(),
+		},
+		extra...), "-")
 }

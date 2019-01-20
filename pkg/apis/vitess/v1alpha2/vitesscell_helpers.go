@@ -1,6 +1,8 @@
 package v1alpha2
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -12,12 +14,21 @@ func (cell *VitessCell) GetCluster() *VitessCluster {
 	return cell.Spec.parent.Cluster
 }
 
-func (cluster *VitessCell) GetLockserver() *VitessLockserver {
-	if cluster.Spec.Lockserver == nil {
+func (cell *VitessCell) GetLockserver() *VitessLockserver {
+	if cell.Spec.Lockserver == nil {
 		return nil
 	}
 	return &VitessLockserver{
-		ObjectMeta: metav1.ObjectMeta{Name: cluster.GetName(), Namespace: cluster.GetNamespace()},
-		Spec:       *cluster.Spec.Lockserver,
+		ObjectMeta: metav1.ObjectMeta{Name: cell.GetName(), Namespace: cell.GetNamespace()},
+		Spec:       *cell.Spec.Lockserver,
 	}
+}
+
+func (cell *VitessCell) GetScopedName(extra ...string) string {
+	return strings.Join(append(
+		[]string{
+			cell.GetCluster().GetName(),
+			cell.GetName(),
+		},
+		extra...), "-")
 }

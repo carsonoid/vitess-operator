@@ -44,40 +44,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to VitessCells and requeue the owner VitessCluster
-	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessCell{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &vitessv1alpha2.VitessCluster{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to VitessKeyspaces and requeue the owner VitessCluster
-	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessKeyspace{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &vitessv1alpha2.VitessCluster{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to VitessShards and requeue the owner VitessCluster
-	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessShard{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &vitessv1alpha2.VitessCluster{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch for changes to VitessTablets and requeue the owner VitessCluster
-	err = c.Watch(&source.Kind{Type: &vitessv1alpha2.VitessTablet{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &vitessv1alpha2.VitessCluster{},
-	})
-	if err != nil {
-		return err
+	for _, childType := range []runtime.Object{
+		&vitessv1alpha2.VitessLockserver{},
+		&vitessv1alpha2.VitessCell{},
+		&vitessv1alpha2.VitessKeyspace{},
+		&vitessv1alpha2.VitessShard{},
+		&vitessv1alpha2.VitessTablet{},
+	} {
+		// Watch for changes to child type and requeue the owner VitessCluster
+		err = c.Watch(&source.Kind{Type: childType}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &vitessv1alpha2.VitessCluster{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -126,18 +107,7 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 	// Valdate
 
 	// Reconcile
-
-	// Reconcile Lockserver
-	if result, err := r.ReconcileClusterLockserver(request, cluster); err != nil {
-		reqLogger.Info("Error Reconciling Lockserver")
-		return result, err
-	} else if result.Requeue {
-		reqLogger.Info("Requeue after reconciling Lockserver")
-		return result, nil
-	}
-
-	// Reconcile Tablets (StatefulSets)
-	if result, err := r.ReconcileClusterResources(r.client, request, cluster); err != nil {
+	if result, err := r.ReconcileClusterResources(cluster); err != nil {
 		reqLogger.Info("Error reconciling cluster member resources")
 		return result, err
 	} else if result.Requeue {
