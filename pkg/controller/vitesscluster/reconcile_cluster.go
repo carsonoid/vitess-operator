@@ -12,12 +12,12 @@ import (
 )
 
 // ReconcileClusterResources should only be called against a fully-populated and verified VitessCluster object
-func (r *ReconcileVitessCluster) ReconcileClusterResources(client client.Client, request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterResources(client client.Client, request reconcile.Request, cluster *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
 	reconciledShards := make(map[string]struct{})
 	reconciledCells := make(map[string]struct{})
-	for _, tablet := range vc.GetEmbeddedTablets() {
+	for _, tablet := range cluster.GetEmbeddedTablets() {
 		// Create the resources for each tablet
-		if result, err := r.ReconcileClusterTablet(request, vc, tablet); err != nil {
+		if result, err := r.ReconcileClusterTablet(request, cluster, tablet); err != nil {
 			return result, err
 		}
 
@@ -49,33 +49,33 @@ func (r *ReconcileVitessCluster) ReconcileClusterResources(client client.Client,
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, vc *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterLockserver(request reconcile.Request, cluster *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
 	reqLogger := log.WithValues()
 	reqLogger.Info("Reconciling Embedded Lockserver")
 
-	if vc.Spec.Lockserver != nil {
+	if cluster.Spec.Lockserver != nil {
 		// Build a complete VitessLockserver
-		vl := &vitessv1alpha2.VitessLockserver{
+		lockserver := &vitessv1alpha2.VitessLockserver{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vc.GetName(),
-				Namespace: vc.GetNamespace(),
+				Name:      cluster.GetName(),
+				Namespace: cluster.GetNamespace(),
 			},
-			Spec: *vc.Spec.Lockserver.DeepCopy(),
+			Spec: *cluster.Spec.Lockserver.DeepCopy(),
 		}
 
-		if vc.Status.Lockserver != nil {
+		if cluster.Status.Lockserver != nil {
 			// If status is not empty, deepcopy it into the tmp object
-			vc.Status.Lockserver.DeepCopyInto(&vl.Status)
+			cluster.Status.Lockserver.DeepCopyInto(&lockserver.Status)
 		}
 
 		// Run it through the controller's reconcile func
-		recResult, recErr := lockserver_controller.ReconcileObject(vl, reqLogger)
+		recResult, recErr := lockserver_controller.ReconcileObject(lockserver, reqLogger)
 
 		// Split and store the spec and status in the parent VitessCluster
-		vc.Spec.Lockserver = vl.Spec.DeepCopy()
-		vc.Status.Lockserver = vl.Status.DeepCopy()
+		cluster.Spec.Lockserver = lockserver.Spec.DeepCopy()
+		cluster.Status.Lockserver = lockserver.Status.DeepCopy()
 
-		if err := r.client.Status().Update(context.TODO(), vc); err != nil {
+		if err := r.client.Status().Update(context.TODO(), cluster); err != nil {
 			reqLogger.Error(err, "Failed to update VitessCluster status after lockserver change.")
 			return reconcile.Result{}, err
 		}

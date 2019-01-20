@@ -18,19 +18,19 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileClusterTablet(request reconcile.Request, vc *vitessv1alpha2.VitessCluster, vt *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterTablet(request reconcile.Request, cluster *vitessv1alpha2.VitessCluster, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
 	reqLogger := log.WithValues()
 
 	// Each embedded tablet should result in a StatefulSet
 	found := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: vt.GetFullName(), Namespace: vt.GetNamespace()}, found)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: tablet.GetFullName(), Namespace: tablet.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		ss, ssErr := getStatefulSetForTablet(vt)
+		ss, ssErr := getStatefulSetForTablet(tablet)
 		if ssErr != nil {
-			reqLogger.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", vt.GetNamespace(), "VitessTablet.Name", vt.GetNamespace())
+			reqLogger.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
 			return reconcile.Result{}, ssErr
 		}
-		controllerutil.SetControllerReference(vc, ss, r.scheme)
+		controllerutil.SetControllerReference(cluster, ss, r.scheme)
 		// reqLogger.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
 		err = r.client.Create(context.TODO(), ss)
 		if err != nil {
@@ -46,37 +46,37 @@ func (r *ReconcileVitessCluster) ReconcileClusterTablet(request reconcile.Reques
 	return reconcile.Result{}, nil
 }
 
-func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet) (*appsv1.StatefulSet, error) {
+func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.StatefulSet, error) {
 	selfLabels := map[string]string{
-		"tabletname": vt.GetName(),
+		"tabletname": tablet.GetName(),
 		"app":        "vitess",
-		"cluster":    vt.GetCluster().GetName(),
-		"cell":       vt.GetCell().GetName(),
-		"keyspace":   vt.GetKeyspace().GetName(),
-		"shard":      vt.GetShard().GetName(),
+		"cluster":    tablet.GetCluster().GetName(),
+		"cell":       tablet.GetCell().GetName(),
+		"keyspace":   tablet.GetKeyspace().GetName(),
+		"shard":      tablet.GetShard().GetName(),
 		"component":  "vttablet",
-		"type":       string(vt.Spec.Type),
+		"type":       string(tablet.Spec.Type),
 	}
 
 	vtgateLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   vt.GetCluster().GetName(),
-		"cell":      vt.GetCell().GetName(),
+		"cluster":   tablet.GetCluster().GetName(),
+		"cell":      tablet.GetCell().GetName(),
 		"component": "vtgate",
 	}
 
 	sameClusterTabletLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   vt.GetCluster().GetName(),
+		"cluster":   tablet.GetCluster().GetName(),
 		"component": "vttablet",
 	}
 
 	sameShardTabletLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   vt.GetCluster().GetName(),
-		"cell":      vt.GetCell().GetName(),
-		"keyspace":  vt.GetKeyspace().GetName(),
-		"shard":     vt.GetShard().GetName(),
+		"cluster":   tablet.GetCluster().GetName(),
+		"cell":      tablet.GetCell().GetName(),
+		"keyspace":  tablet.GetKeyspace().GetName(),
+		"shard":     tablet.GetShard().GetName(),
 		"component": "vttablet",
 	}
 
@@ -122,12 +122,12 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet) (*appsv1.StatefulS
 		},
 	}
 
-	dbContainers, dbInitContainers, err := GetTabletMysqlContainers(vt)
+	dbContainers, dbInitContainers, err := GetTabletMysqlContainers(tablet)
 	if err != nil {
 		return nil, err
 	}
 
-	vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(vt)
+	vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(tablet)
 	if err != nil {
 		return nil, err
 	}
@@ -148,14 +148,14 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet) (*appsv1.StatefulS
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vt.GetFullName(),
-			Namespace: vt.GetNamespace(),
+			Name:      tablet.GetFullName(),
+			Namespace: tablet.GetNamespace(),
 			Labels:    selfLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			//PodManagementPolicy: appsv1.PodManagementPolicyParallel{},
 			PodManagementPolicy: appsv1.ParallelPodManagement,
-			Replicas:            vt.GetReplicas(),
+			Replicas:            tablet.GetReplicas(),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selfLabels,
 			},
@@ -172,10 +172,10 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet) (*appsv1.StatefulS
 					Containers:     containers,
 					InitContainers: initContainers,
 					//   - emptyDir: {}
-					// name: vt
+					// name: tablet
 					Volumes: []corev1.Volume{
 						{
-							Name: "vt",
+							Name: "tablet",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
@@ -205,13 +205,13 @@ func getStatefulSetForTablet(vt *vitessv1alpha2.VitessTablet) (*appsv1.StatefulS
 	}, nil
 }
 
-func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
-	dbName, dbConf := vt.GetDBNameAndConfig()
+func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
+	dbName, dbConf := tablet.GetDBNameAndConfig()
 	if dbConf == nil {
 		return containers, initContainers, fmt.Errorf("No database container configuration found")
 	}
 
-	dbScripts := scripts.NewContainerScriptGenerator("mysql", vt)
+	dbScripts := scripts.NewContainerScriptGenerator("mysql", tablet)
 	if err := dbScripts.Generate(); err != nil {
 		return containers, initContainers, fmt.Errorf("Error generating DB container scripts: %s", err)
 	}
@@ -232,7 +232,7 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 					MountPath: "/vtdataroot",
 				},
 				{
-					Name:      "vt",
+					Name:      "tablet",
 					MountPath: "/vttmp",
 				},
 			},
@@ -282,14 +282,14 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 				MountPath: "/vtdataroot",
 			},
 			{
-				Name:      "vt",
-				MountPath: "/vt",
+				Name:      "tablet",
+				MountPath: "/tablet",
 			},
 		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "VTROOT",
-				Value: "/vt",
+				Value: "/tablet",
 			},
 			{
 				Name:  "VTDATAROOT",
@@ -297,7 +297,7 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 			},
 			{
 				Name:  "GOBIN",
-				Value: "/vt/bin",
+				Value: "/tablet/bin",
 			},
 			{
 				Name:  "VT_MYSQL_ROOT",
@@ -305,7 +305,7 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 			},
 			{
 				Name:  "PKG_CONFIG_PATH",
-				Value: "/vt/lib",
+				Value: "/tablet/lib",
 			},
 			{
 				Name: "VT_DB_FLAVOR",
@@ -324,14 +324,14 @@ func GetTabletMysqlContainers(vt *vitessv1alpha2.VitessTablet) (containers []cor
 	return
 }
 
-func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
-	tabletConf := vt.GetTabletConfig()
+func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
+	tabletConf := tablet.GetTabletConfig()
 	if tabletConf == nil {
 		err = fmt.Errorf("No database container configuration found")
 		return
 	}
 
-	vtScripts := scripts.NewContainerScriptGenerator("vttablet", vt)
+	vtScripts := scripts.NewContainerScriptGenerator("vttablet", tablet)
 	if err = vtScripts.Generate(); err != nil {
 		err = fmt.Errorf("Error generating DB container scripts: %s", err)
 		return
@@ -429,7 +429,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 			Env: []corev1.EnvVar{
 				{
 					Name:  "VTROOT",
-					Value: "/vt",
+					Value: "/tablet",
 				},
 				{
 					Name:  "VTDATAROOT",
@@ -437,7 +437,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 				},
 				{
 					Name:  "GOBIN",
-					Value: "/vt/bin",
+					Value: "/tablet/bin",
 				},
 				{
 					Name:  "VT_MYSQL_ROOT",
@@ -445,7 +445,7 @@ func GetTabletVTTabletContainers(vt *vitessv1alpha2.VitessTablet) (containers []
 				},
 				{
 					Name:  "PKG_CONFIG_PATH",
-					Value: "/vt/lib",
+					Value: "/tablet/lib",
 				},
 				{
 					Name: "VT_DB_FLAVOR",

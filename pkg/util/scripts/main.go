@@ -18,10 +18,10 @@ type ContainerScriptGenerator struct {
 	PreStop       string
 }
 
-func NewContainerScriptGenerator(containerType string, vt *vitessv1alpha2.VitessTablet) *ContainerScriptGenerator {
+func NewContainerScriptGenerator(containerType string, tablet *vitessv1alpha2.VitessTablet) *ContainerScriptGenerator {
 	return &ContainerScriptGenerator{
 		ContainerType: containerType,
-		Tablet:        vt,
+		Tablet:        tablet,
 	}
 }
 

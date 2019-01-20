@@ -7,8 +7,8 @@ import (
 )
 
 // GetTabletContainers satisfies ConfigProvider
-func (vt *VitessTablet) GetTabletContainers() *TabletContainers {
-	return vt.Spec.Containers
+func (tablet *VitessTablet) GetTabletContainers() *TabletContainers {
+	return tablet.Spec.Containers
 }
 
 // func (p *VitessTabletParentSet) IsValid() (bool, error) {
@@ -35,75 +35,75 @@ func (vt *VitessTablet) GetTabletContainers() *TabletContainers {
 // 	return valid, fmt.Errorf(strings.Join(problems, ", "))
 // }
 
-func (vt *VitessTablet) SetParents(shard *VitessShard, cell *VitessCell) {
-	vt.Spec.parent.Shard = shard
-	vt.Spec.parent.VitessShardParents = shard.Spec.parent
+func (tablet *VitessTablet) SetParents(shard *VitessShard, cell *VitessCell) {
+	tablet.Spec.parent.Shard = shard
+	tablet.Spec.parent.VitessShardParents = shard.Spec.parent
 
-	vt.Spec.parent.Cell = cell
+	tablet.Spec.parent.Cell = cell
 }
 
-func (vt *VitessTablet) GetLockserver() *VitessLockserver {
-	if vt.GetCell() != nil && vt.GetCell().Spec.Lockserver != nil {
-		return vt.GetCell().GetLockserver()
+func (tablet *VitessTablet) GetLockserver() *VitessLockserver {
+	if tablet.GetCell() != nil && tablet.GetCell().Spec.Lockserver != nil {
+		return tablet.GetCell().GetLockserver()
 	}
 
-	if vt.GetCluster() != nil && vt.GetCluster().Spec.Lockserver != nil {
-		return vt.GetCluster().GetLockserver()
+	if tablet.GetCluster() != nil && tablet.GetCluster().Spec.Lockserver != nil {
+		return tablet.GetCluster().GetLockserver()
 	}
 
 	return nil
 }
 
-func (vt *VitessTablet) GetCluster() *VitessCluster {
-	return vt.Spec.parent.Cluster
+func (tablet *VitessTablet) GetCluster() *VitessCluster {
+	return tablet.Spec.parent.Cluster
 }
 
-func (vt *VitessTablet) GetCell() *VitessCell {
-	return vt.Spec.parent.Cell
+func (tablet *VitessTablet) GetCell() *VitessCell {
+	return tablet.Spec.parent.Cell
 }
 
-func (vt *VitessTablet) GetKeyspace() *VitessKeyspace {
-	return vt.Spec.parent.Keyspace
+func (tablet *VitessTablet) GetKeyspace() *VitessKeyspace {
+	return tablet.Spec.parent.Keyspace
 }
 
-func (vt *VitessTablet) GetShard() *VitessShard {
-	return vt.Spec.parent.Shard
+func (tablet *VitessTablet) GetShard() *VitessShard {
+	return tablet.Spec.parent.Shard
 }
 
-func (vt *VitessTablet) GetFullName() string {
+func (tablet *VitessTablet) GetFullName() string {
 	return strings.Join([]string{
-		vt.GetScopedName(),
+		tablet.GetScopedName(),
 	}, "-")
 }
 
-func (vt *VitessTablet) GetScopedName() string {
+func (tablet *VitessTablet) GetScopedName() string {
 	return strings.Join([]string{
-		vt.GetCluster().GetName(),
-		vt.GetCell().GetName(),
-		vt.GetKeyspace().GetName(),
-		vt.GetShard().GetName(),
+		tablet.GetCluster().GetName(),
+		tablet.GetCell().GetName(),
+		tablet.GetKeyspace().GetName(),
+		tablet.GetShard().GetName(),
 	}, "-")
 }
 
-func (vt *VitessTablet) GetReplicas() *int32 {
-	if vt.Spec.Replicas != nil {
-		return vt.Spec.Replicas
+func (tablet *VitessTablet) GetReplicas() *int32 {
+	if tablet.Spec.Replicas != nil {
+		return tablet.Spec.Replicas
 	}
 
-	if vt.GetShard().Spec.Defaults != nil && vt.GetShard().Spec.Defaults.Replicas != nil {
-		return vt.GetShard().Spec.Defaults.Replicas
+	if tablet.GetShard().Spec.Defaults != nil && tablet.GetShard().Spec.Defaults.Replicas != nil {
+		return tablet.GetShard().Spec.Defaults.Replicas
 	}
 
 	var def int32
 	return &def
 }
 
-func (vt *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
+func (tablet *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
-		vt,
-		vt.Spec.parent.Shard,
-		vt.Spec.parent.Keyspace,
+		tablet,
+		tablet.Spec.parent.Shard,
+		tablet.Spec.parent.Keyspace,
 	}
 
 	for _, p := range providers {
@@ -115,12 +115,12 @@ func (vt *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
 	return "", nil
 }
 
-func (vt *VitessTablet) GetTabletConfig() *VTContainer {
+func (tablet *VitessTablet) GetTabletConfig() *VTContainer {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
-		vt,
-		vt.GetShard(),
-		vt.GetKeyspace(),
+		tablet,
+		tablet.GetShard(),
+		tablet.GetKeyspace(),
 	}
 
 	for _, p := range providers {
@@ -132,6 +132,6 @@ func (vt *VitessTablet) GetTabletConfig() *VTContainer {
 	return nil
 }
 
-func (vt *VitessTablet) GetTabletID() string {
-	return strconv.FormatInt(vt.Spec.TabletID, 10)
+func (tablet *VitessTablet) GetTabletID() string {
+	return strconv.FormatInt(tablet.Spec.TabletID, 10)
 }

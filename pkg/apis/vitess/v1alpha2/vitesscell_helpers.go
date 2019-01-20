@@ -12,12 +12,12 @@ func (cell *VitessCell) GetCluster() *VitessCluster {
 	return cell.Spec.parent.Cluster
 }
 
-func (vc *VitessCell) GetLockserver() *VitessLockserver {
-	if vc.Spec.Lockserver == nil {
+func (cluster *VitessCell) GetLockserver() *VitessLockserver {
+	if cluster.Spec.Lockserver == nil {
 		return nil
 	}
 	return &VitessLockserver{
-		ObjectMeta: metav1.ObjectMeta{Name: vc.GetName(), Namespace: vc.GetNamespace()},
-		Spec:       *vc.Spec.Lockserver,
+		ObjectMeta: metav1.ObjectMeta{Name: cluster.GetName(), Namespace: cluster.GetNamespace()},
+		Spec:       *cluster.Spec.Lockserver,
 	}
 }

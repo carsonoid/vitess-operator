@@ -24,13 +24,13 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 
 	var (
 		namespace = "vitess"
-		vcName    = "vitess-operator"
+		clusterName    = "vitess-operator"
 	)
 
 	// Define a minimal cluster with both a lockserver and lockserverRef given
-	vc := &vitessv1alpha2.VitessCluster{
+	cluster := &vitessv1alpha2.VitessCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vcName,
+			Name:      clusterName,
 			Namespace: namespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
@@ -43,12 +43,12 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 
 	// Objects to track in the fake client.
 	objs := []runtime.Object{
-		vc,
+		cluster,
 	}
 
 	// Register operator types with the runtime scheme.
 	s := scheme.Scheme
-	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, vc)
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, cluster)
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
 	// Create a ReconcileVitessCluster object with the scheme and fake client.
@@ -58,7 +58,7 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 	// watched resource .
 	req := reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      vcName,
+			Name:      clusterName,
 			Namespace: namespace,
 		},
 	}
@@ -80,15 +80,15 @@ func TestTabletTemplates(t *testing.T) {
 
 	var (
 		namespace    = "vitess"
-		vcName       = "vitess-operator"
+		clusterName       = "vitess-operator"
 		etcd2Address = "etcd2.test.address:12345"
 		etcd2Path    = "etcd2/test/path"
 	)
 
 	// Define a minimal cluster which matches one of the cells above
-	vc := &vitessv1alpha2.VitessCluster{
+	cluster := &vitessv1alpha2.VitessCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vcName,
+			Name:      clusterName,
 			Namespace: namespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
@@ -131,7 +131,7 @@ func TestTabletTemplates(t *testing.T) {
 
 	// Populate the client with initial data
 	objs := []runtime.Object{
-		vc,
+		cluster,
 	}
 
 	// Register operator types with the runtime scheme.
@@ -151,13 +151,13 @@ func TestTabletTemplates(t *testing.T) {
 	cl := fake.NewFakeClient(objs...)
 
 	// Call the normalize function for the cluster
-	err := normalizer.New(cl).NormalizeCluster(vc)
+	err := normalizer.New(cl).NormalizeCluster(cluster)
 	if err != nil {
 		t.Fatalf("Error normalizing cluster: %s", err)
 	}
 
-	for _, vt := range vc.GetEmbeddedTablets() {
-		vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(vt)
+	for _, tablet := range cluster.GetEmbeddedTablets() {
+		vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(tablet)
 		if err != nil {
 			t.Fatalf("Error generating vttablet container for tablet: %s", err)
 		}

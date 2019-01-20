@@ -16,20 +16,20 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Request, vt *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Request, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
 	reqLogger := log.WithValues()
 
 	// Each shard needs a master election job
-	deploy, service, deployErr := GetClusterCellVtctld(vt.GetCluster(), vt.GetCell(), vt)
+	deploy, service, deployErr := GetClusterCellVtctld(tablet.GetCluster(), tablet.GetCell(), tablet)
 	if deployErr != nil {
-		reqLogger.Error(deployErr, "failed to generate Vtctld Deployment for VitessCell", "VitessCell.Namespace", vt.GetCell().GetNamespace(), "VitessCell.Name", vt.GetCell().GetNamespace())
+		reqLogger.Error(deployErr, "failed to generate Vtctld Deployment for VitessCell", "VitessCell.Namespace", tablet.GetCell().GetNamespace(), "VitessCell.Name", tablet.GetCell().GetNamespace())
 		return reconcile.Result{}, deployErr
 	}
 
 	found := &appsv1.Deployment{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(vt.GetCluster(), deploy, r.scheme)
+		controllerutil.SetControllerReference(tablet.GetCluster(), deploy, r.scheme)
 		err = r.client.Create(context.TODO(), deploy)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -41,10 +41,10 @@ func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Re
 		return reconcile.Result{}, err
 	}
 
-	foundSvc := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundSvc)
+	foundScluster := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundScluster)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(vt.GetCluster(), service, r.scheme)
+		controllerutil.SetControllerReference(tablet.GetCluster(), service, r.scheme)
 		err = r.client.Create(context.TODO(), service)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -59,24 +59,24 @@ func (r *ReconcileVitessCluster) ReconcileClusterCellVtctld(request reconcile.Re
 	return reconcile.Result{}, nil
 }
 
-func GetClusterCellVtctld(vc *vitessv1alpha2.VitessCluster, vcell *vitessv1alpha2.VitessCell, vt *vitessv1alpha2.VitessTablet) (*appsv1.Deployment, *corev1.Service, error) {
-	name := vc.GetName() + "-" + vcell.GetName() + "-vtctld"
+func GetClusterCellVtctld(cluster *vitessv1alpha2.VitessCluster, clusterell *vitessv1alpha2.VitessCell, tablet *vitessv1alpha2.VitessTablet) (*appsv1.Deployment, *corev1.Service, error) {
+	name := cluster.GetName() + "-" + clusterell.GetName() + "-vtctld"
 
-	scripts := scripts.NewContainerScriptGenerator("vtctld", vt)
+	scripts := scripts.NewContainerScriptGenerator("vtctld", tablet)
 	if err := scripts.Generate(); err != nil {
 		return nil, nil, err
 	}
 
 	labels := map[string]string{
 		"app":       "vitess",
-		"cluster":   vt.GetCluster().GetName(),
+		"cluster":   tablet.GetCluster().GetName(),
 		"component": "vtctld",
 	}
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: vc.GetNamespace(),
+			Namespace: cluster.GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -143,7 +143,7 @@ func GetClusterCellVtctld(vc *vitessv1alpha2.VitessCluster, vcell *vitessv1alpha
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: vc.GetNamespace(),
+			Namespace: cluster.GetNamespace(),
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{

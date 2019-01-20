@@ -16,23 +16,23 @@ import (
 	"vitess.io/vitess-operator/pkg/util/scripts"
 )
 
-func (r *ReconcileVitessCluster) ReconcileTabletShard(client client.Client, request reconcile.Request, vt *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+func (r *ReconcileVitessCluster) ReconcileTabletShard(client client.Client, request reconcile.Request, tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
 	reqLogger := log.WithValues()
 
-	vc := vt.GetCluster()
-	vs := vt.GetShard()
+	cluster := tablet.GetCluster()
+	shard := tablet.GetShard()
 
 	// Each shard needs a master election job
-	job, jobErr := GetInitShardMasterJob(vt, vt.GetShard(), vt.GetCluster())
+	job, jobErr := GetInitShardMasterJob(tablet, tablet.GetShard(), tablet.GetCluster())
 	if jobErr != nil {
-		reqLogger.Error(jobErr, "failed to generate MasterElect Job for VitessShard", "VitessShard.Namespace", vs.GetNamespace(), "VitessShard.Name", vs.GetNamespace())
+		reqLogger.Error(jobErr, "failed to generate MasterElect Job for VitessShard", "VitessShard.Namespace", shard.GetNamespace(), "VitessShard.Name", shard.GetNamespace())
 		return reconcile.Result{}, jobErr
 	}
 
 	found := &batchv1.Job{}
 	err := client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(vc, job, r.scheme)
+		controllerutil.SetControllerReference(cluster, job, r.scheme)
 		err = client.Create(context.TODO(), job)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -47,20 +47,20 @@ func (r *ReconcileVitessCluster) ReconcileTabletShard(client client.Client, requ
 	return reconcile.Result{}, nil
 }
 
-func GetInitShardMasterJob(vt *vitessv1alpha2.VitessTablet, vs *vitessv1alpha2.VitessShard, vc *vitessv1alpha2.VitessCluster) (*batchv1.Job, error) {
-	jobName := vt.GetScopedName() + "-init-shard-master"
+func GetInitShardMasterJob(tablet *vitessv1alpha2.VitessTablet, shard *vitessv1alpha2.VitessShard, cluster *vitessv1alpha2.VitessCluster) (*batchv1.Job, error) {
+	jobName := tablet.GetScopedName() + "-init-shard-master"
 
-	scripts := scripts.NewContainerScriptGenerator("init_shard_master", vt)
+	scripts := scripts.NewContainerScriptGenerator("init_shard_master", tablet)
 	if err := scripts.Generate(); err != nil {
 		return nil, err
 	}
 
 	jobLabels := map[string]string{
 		"app":                "vitess",
-		"cluster":            vt.GetCluster().GetName(),
-		"cell":               vt.GetCell().GetName(),
-		"keyspace":           vt.GetKeyspace().GetName(),
-		"shard":              vt.GetShard().GetName(),
+		"cluster":            tablet.GetCluster().GetName(),
+		"cell":               tablet.GetCell().GetName(),
+		"keyspace":           tablet.GetKeyspace().GetName(),
+		"shard":              tablet.GetShard().GetName(),
 		"component":          "vttablet",
 		"initShardMasterJob": "true",
 		"job-name":           jobName,
@@ -69,7 +69,7 @@ func GetInitShardMasterJob(vt *vitessv1alpha2.VitessTablet, vs *vitessv1alpha2.V
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Namespace: vt.GetNamespace(),
+			Namespace: tablet.GetNamespace(),
 			Labels:    jobLabels,
 		},
 		Spec: batchv1.JobSpec{

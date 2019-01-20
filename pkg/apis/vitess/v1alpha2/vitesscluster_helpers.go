@@ -7,12 +7,12 @@ import (
 )
 
 // GetEmbeddedCells processes the embedded cell map and returns a slice of cells
-func (vc *VitessCluster) GetEmbeddedCells() (ret []*VitessCell) {
-	for name, spec := range vc.Spec.Cells {
+func (cluster *VitessCluster) GetEmbeddedCells() (ret []*VitessCell) {
+	for name, spec := range cluster.Spec.Cells {
 		ret = append(ret, &VitessCell{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: vc.GetNamespace(),
+				Namespace: cluster.GetNamespace(),
 			},
 			Spec: *spec,
 		})
@@ -20,29 +20,29 @@ func (vc *VitessCluster) GetEmbeddedCells() (ret []*VitessCell) {
 	return
 }
 
-func (vc *VitessCluster) EmbedCell(cell *VitessCell) error {
+func (cluster *VitessCluster) EmbedCell(cell *VitessCell) error {
 	// First check the the cells map is initialized
-	if vc.Spec.Cells == nil {
-		vc.Spec.Cells = make(map[string]*VitessCellSpec)
+	if cluster.Spec.Cells == nil {
+		cluster.Spec.Cells = make(map[string]*VitessCellSpec)
 	}
 
 	// Then check to make sure it is not already defined in the
 	// embedded resources
-	if _, exists := vc.Spec.Cells[cell.GetName()]; exists {
+	if _, exists := cluster.Spec.Cells[cell.GetName()]; exists {
 		return fmt.Errorf("Error merging VitessCell: %s: Already defined in the VitessCluster", cell.GetName())
 	}
-	vc.Spec.Cells[cell.GetName()] = &cell.DeepCopy().Spec
+	cluster.Spec.Cells[cell.GetName()] = &cell.DeepCopy().Spec
 
 	return nil
 }
 
 // GetEmbeddedKeyspaces processes the embedded keyspace map and returns a slice of keyspaces
-func (vc *VitessCluster) GetEmbeddedKeyspaces() (ret []*VitessKeyspace) {
-	for name, spec := range vc.Spec.Keyspaces {
+func (cluster *VitessCluster) GetEmbeddedKeyspaces() (ret []*VitessKeyspace) {
+	for name, spec := range cluster.Spec.Keyspaces {
 		ret = append(ret, &VitessKeyspace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: vc.GetNamespace(),
+				Namespace: cluster.GetNamespace(),
 			},
 			Spec: *spec,
 		})
@@ -50,53 +50,53 @@ func (vc *VitessCluster) GetEmbeddedKeyspaces() (ret []*VitessKeyspace) {
 	return
 }
 
-func (vc *VitessCluster) EmbedKeyspace(keyspace *VitessKeyspace) error {
+func (cluster *VitessCluster) EmbedKeyspace(keyspace *VitessKeyspace) error {
 	// First check the the cells map is initialized
-	if vc.Spec.Keyspaces == nil {
-		vc.Spec.Keyspaces = make(map[string]*VitessKeyspaceSpec)
+	if cluster.Spec.Keyspaces == nil {
+		cluster.Spec.Keyspaces = make(map[string]*VitessKeyspaceSpec)
 	}
 
 	// Then check to make sure it is not already defined in the
 	// embedded resources
-	if _, exists := vc.Spec.Keyspaces[keyspace.GetName()]; exists {
+	if _, exists := cluster.Spec.Keyspaces[keyspace.GetName()]; exists {
 		return fmt.Errorf("Error merging VitessKeyspace %s: Already defined in the VitessCluster", keyspace.GetName())
 	}
-	vc.Spec.Keyspaces[keyspace.GetName()] = &keyspace.DeepCopy().Spec
+	cluster.Spec.Keyspaces[keyspace.GetName()] = &keyspace.DeepCopy().Spec
 
 	return nil
 }
 
 // GetEmbeddedShards processes the embedded keyspace map and returns a slice of shards
-func (vc *VitessCluster) GetEmbeddedShards() (ret []*VitessShard) {
-	for _, keyspace := range vc.GetEmbeddedKeyspaces() {
+func (cluster *VitessCluster) GetEmbeddedShards() (ret []*VitessShard) {
+	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
 		ret = append(ret, keyspace.GetEmbeddedShards()...)
 	}
 	return
 }
 
 // GetEmbeddedShards processes the embedded keyspace map and returns a slice of shards
-func (vc *VitessCluster) GetEmbeddedTablets() (ret []*VitessTablet) {
-	for _, shard := range vc.GetEmbeddedShards() {
+func (cluster *VitessCluster) GetEmbeddedTablets() (ret []*VitessTablet) {
+	for _, shard := range cluster.GetEmbeddedShards() {
 		ret = append(ret, shard.GetEmbeddedTablets()...)
 	}
 	return
 }
 
-func (vc *VitessCluster) GetLockserver() *VitessLockserver {
-	if vc.Spec.Lockserver == nil {
+func (cluster *VitessCluster) GetLockserver() *VitessLockserver {
+	if cluster.Spec.Lockserver == nil {
 		return nil
 	}
 	return &VitessLockserver{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vc.GetName(),
-			Namespace: vc.GetNamespace(),
+			Name:      cluster.GetName(),
+			Namespace: cluster.GetNamespace(),
 		},
-		Spec: *vc.Spec.Lockserver,
+		Spec: *cluster.Spec.Lockserver,
 	}
 }
 
-func (vc *VitessCluster) GetCellByID(cellID string) *VitessCell {
-	spec, found := vc.Spec.Cells[cellID]
+func (cluster *VitessCluster) GetCellByID(cellID string) *VitessCell {
+	spec, found := cluster.Spec.Cells[cellID]
 	if !found {
 		return nil
 	}
@@ -104,7 +104,7 @@ func (vc *VitessCluster) GetCellByID(cellID string) *VitessCell {
 	return &VitessCell{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cellID,
-			Namespace: vc.GetNamespace(),
+			Namespace: cluster.GetNamespace(),
 		},
 		Spec: *spec,
 	}
