@@ -108,14 +108,12 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 	}
 
 	// Configure shard params
-	if shard, ok := csg.Object.(*vitessv1alpha2.VitessShard); ok {
+	if cell, ok := csg.Object.(*vitessv1alpha2.VitessCell); ok {
 		params = map[string]interface{}{
-			// "Lockserver": shard.GetLockserver(),
-			"Cluster": shard.GetCluster(),
-			// "Cell":       shard.GetCell(),
-			"Keyspace":   shard.GetKeyspace(),
-			"Shard":      shard,
-			"ScopedName": shard.GetScopedName(),
+			"Lockserver": cell.GetLockserver(),
+			"Cluster":    cell.GetCluster(),
+			"Cell":       cell,
+			"ScopedName": cell.GetScopedName(),
 		}
 	}
 
