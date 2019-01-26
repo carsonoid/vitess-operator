@@ -17,48 +17,64 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileCell(cell *vitessv1alpha2.VitessCell) (reconcile.Result, error) {
-	// Each shard needs a master election job
-	deploy, service, deployErr := GetCellVtctldResources(cell)
+	log.Info("Reconciling Cell", "Namespace", cell.GetNamespace(), "VitessCluster.Name", cell.GetCluster().GetName(), "Cell.Name", cell.GetName())
+
+	if r, err := r.ReconcileCellVTctld(cell); err != nil {
+		log.Error(err, "Failed to reconcile vtctl", "Namespace", cell.GetName(), "VitessCluster.Name", cell.GetCluster().GetName(), "Cell.Name", cell.GetName())
+		return r, err
+	} else if r.Requeue {
+		return r, err
+	}
+
+	if r, err := r.ReconcileCellVTGate(cell); err != nil {
+		log.Error(err, "Failed to reconcile vtgate", "Namespace", cell.GetName(), "VitessCluster.Name", cell.GetCluster().GetName(), "Cell.Name", cell.GetName())
+		return r, err
+	} else if r.Requeue {
+		return r, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileCellVTctld(cell *vitessv1alpha2.VitessCell) (reconcile.Result, error) {
+	deploy, service, deployErr := GetCellVTctldResources(cell)
 	if deployErr != nil {
 		log.Error(deployErr, "failed to generate Vtctld Deployment for VitessCell", "VitessCell.Namespace", cell.GetNamespace(), "VitessCell.Name", cell.GetNamespace())
 		return reconcile.Result{}, deployErr
 	}
 
-	found := &appsv1.Deployment{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, found)
+	foundDeployment := &appsv1.Deployment{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, foundDeployment)
 	if err != nil && errors.IsNotFound(err) {
 		controllerutil.SetControllerReference(cell.GetCluster(), deploy, r.scheme)
 		err = r.client.Create(context.TODO(), deploy)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		// Job created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "failed to get Deployment")
 		return reconcile.Result{}, err
 	}
 
-	foundCluster := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundCluster)
+	foundService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundService)
 	if err != nil && errors.IsNotFound(err) {
 		controllerutil.SetControllerReference(cell.GetCluster(), service, r.scheme)
 		err = r.client.Create(context.TODO(), service)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		// Job created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "failed to get Service")
 		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
+
 }
 
-func GetCellVtctldResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment, *corev1.Service, error) {
-	name := cell.GetScopedName("-vtctld")
+func GetCellVTctldResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment, *corev1.Service, error) {
+	name := cell.GetScopedName("vtctld")
 
 	scripts := scripts.NewContainerScriptGenerator("vtctld", cell)
 	if err := scripts.Generate(); err != nil {
@@ -155,6 +171,203 @@ func GetCellVtctldResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 				{
 					Name: "grpc",
 					Port: 15999,
+				},
+			},
+		},
+	}
+
+	return deployment, service, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileCellVTGate(cell *vitessv1alpha2.VitessCell) (reconcile.Result, error) {
+	deploy, service, deployErr := GetCellVTGateResources(cell)
+	if deployErr != nil {
+		log.Error(deployErr, "failed to generate VTGate Deployment for VitessCell", "VitessCell.Namespace", cell.GetNamespace(), "VitessCell.Name", cell.GetNamespace())
+		return reconcile.Result{}, deployErr
+	}
+
+	foundDeployment := &appsv1.Deployment{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: deploy.GetName(), Namespace: deploy.GetNamespace()}, foundDeployment)
+	if err != nil && errors.IsNotFound(err) {
+		controllerutil.SetControllerReference(cell.GetCluster(), deploy, r.scheme)
+		err = r.client.Create(context.TODO(), deploy)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		log.Error(err, "failed to get Deployment")
+		return reconcile.Result{}, err
+	}
+
+	foundService := &corev1.Service{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundService)
+	if err != nil && errors.IsNotFound(err) {
+		controllerutil.SetControllerReference(cell.GetCluster(), service, r.scheme)
+		err = r.client.Create(context.TODO(), service)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else if err != nil {
+		log.Error(err, "failed to get Service")
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+
+}
+
+func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment, *corev1.Service, error) {
+	name := cell.GetScopedName("vtgate")
+
+	scripts := scripts.NewContainerScriptGenerator("vtgate", cell)
+	if err := scripts.Generate(); err != nil {
+		return nil, nil, err
+	}
+
+	vtgateLabels := map[string]string{
+		"app":       "vitess",
+		"cluster":   cell.GetCluster().GetName(),
+		"cell":      cell.GetName(),
+		"component": "vtgate",
+	}
+
+	vttabletLabels := map[string]string{
+		"app":       "vitess",
+		"cluster":   cell.GetCluster().GetName(),
+		"cell":      cell.GetName(),
+		"component": "vttabletLabels",
+	}
+
+	// Build affinity
+	affinity := &corev1.Affinity{
+		PodAffinity: &corev1.PodAffinity{
+			// Prefer to run on the same host as a vtgate pod
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					Weight: 10,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: vttabletLabels,
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		},
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					Weight: 100,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: vtgateLabels,
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		},
+	}
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cell.GetCluster().GetNamespace(),
+			Labels:    vtgateLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			ProgressDeadlineSeconds: getInt32Ptr(600),
+			Replicas:                getInt32Ptr(3),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: vtgateLabels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: vtgateLabels,
+				},
+				Spec: corev1.PodSpec{
+					Affinity: affinity,
+					Containers: []corev1.Container{
+						{
+							Name:  "vtctld",
+							Image: "vitess/vtctld:helm-1.0.3", // TODO use CRD w/default
+							Command: []string{
+								"bash",
+							},
+							Args: []string{
+								"-c",
+								scripts.Start,
+							},
+							LivenessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/debug/status",
+										Port:   intstr.FromInt(15001),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 30,
+								TimeoutSeconds:      5,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path:   "/debug/health",
+										Port:   intstr.FromInt(15001),
+										Scheme: corev1.URISchemeHTTP,
+									},
+								},
+								InitialDelaySeconds: 30,
+								TimeoutSeconds:      5,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									MountPath: "/mysqlcreds",
+									Name:      "creds",
+								},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup:   getInt64Ptr(2000),
+						RunAsUser: getInt64Ptr(1000),
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "creds",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cell.GetCluster().GetNamespace(),
+			Labels:    vtgateLabels,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: vtgateLabels,
+			Type:     corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{
+				{
+					Name: "web",
+					Port: 15001,
+				},
+				{
+					Name: "grpc",
+					Port: 15991,
 				},
 			},
 		},

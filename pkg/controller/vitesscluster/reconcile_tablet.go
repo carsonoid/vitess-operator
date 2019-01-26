@@ -19,6 +19,8 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileTablet(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+	log.Info("Reconciling Tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+
 	// Each embedded tablet should result in a StatefulSet
 	found := &appsv1.StatefulSet{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: tablet.GetFullName(), Namespace: tablet.GetNamespace()}, found)

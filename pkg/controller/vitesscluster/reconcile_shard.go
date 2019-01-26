@@ -16,6 +16,8 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileShard(shard *vitessv1alpha2.VitessShard) (reconcile.Result, error) {
+	log.Info("Reconciling Shard", "Namespace", shard.GetNamespace(), "VitessCluster.Name", shard.GetCluster().GetName(), "Shard.Name", shard.GetName())
+
 	if r, err := r.ReconcileShardResources(shard); err != nil {
 		return r, err
 	}

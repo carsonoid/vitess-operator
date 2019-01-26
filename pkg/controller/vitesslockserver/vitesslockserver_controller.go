@@ -101,10 +101,10 @@ func ReconcileObject(instance *vitessv1alpha2.VitessLockserver, upstreamLog logr
 	reqLogger.Info("Reconciling VitessLockserver")
 
 	// TODO actual reconcile
-	if instance.Status.State != "Ready" {
-		instance.Status.State = "Ready"
-		return reconcile.Result{Requeue: true}, nil
-	}
+	// if instance.Status.State != "Ready" {
+	// 	instance.Status.State = "Ready"
+	// 	return reconcile.Result{Requeue: true}, nil
+	// }
 
 	return reconcile.Result{}, nil
 }
