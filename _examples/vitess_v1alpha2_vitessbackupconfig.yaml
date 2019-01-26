@@ -1,0 +1,12 @@
+apiVersion: vitess.io/v1alpha2
+kind: VitessBackupConfig
+metadata:
+  name: example-vitessbackupconfig
+spec:
+  storage:
+    implementation: s3
+    s3:
+      bucket: vitess-backups
+      awsRegion: us-east-1
+      root: /
+      serversideencryption: true

@@ -50,6 +50,9 @@ func TestSanity(t *testing.T) {
 			LockserverRef: &corev1.LocalObjectReference{
 				Name: "lockserver",
 			},
+			BackupConfigRef: &corev1.LocalObjectReference{
+				Name: "backupconfig",
+			},
 		},
 	}
 
@@ -59,6 +62,12 @@ func TestSanity(t *testing.T) {
 		&vitessv1alpha2.VitessLockserver{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "lockserver",
+				Namespace: testNamespace,
+			},
+		},
+		&vitessv1alpha2.VitessBackupConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backupconfig",
 				Namespace: testNamespace,
 			},
 		},
@@ -78,6 +87,8 @@ func TestSanity(t *testing.T) {
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserver{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserverList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfig{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfigList{})
 
 	// Create a fake client to mock API calls.
 	client := fake.NewFakeClient(objs...)
@@ -103,6 +114,16 @@ func TestValidation(t *testing.T) {
 		obj        runtime.Object
 		missingErr ValidationError
 	}{
+		{
+			&vitessv1alpha2.VitessBackupConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "backupconfig",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+			},
+			nil, // BackupConfig not required
+		},
 		{
 			&vitessv1alpha2.VitessLockserver{
 				ObjectMeta: metav1.ObjectMeta{
@@ -179,6 +200,8 @@ func TestValidation(t *testing.T) {
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserver{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserverList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfig{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfigList{})
 
 	// Create a fake client to mock API calls.
 	client := fake.NewFakeClient()
@@ -263,6 +286,9 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 			LockserverRef: &corev1.LocalObjectReference{
 				Name: "lockserver",
 			},
+			BackupConfigRef: &corev1.LocalObjectReference{
+				Name: "backupconfig",
+			},
 			CellSelector:     testSel,
 			KeyspaceSelector: testSel,
 		},
@@ -273,6 +299,13 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 		&vitessv1alpha2.VitessLockserver{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "lockserver",
+				Namespace: testNamespace,
+				Labels:    testLabels,
+			},
+		},
+		&vitessv1alpha2.VitessBackupConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backupconfig",
 				Namespace: testNamespace,
 				Labels:    testLabels,
 			},
@@ -332,6 +365,8 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessKeyspaceList{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserver{})
 	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessLockserverList{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfig{})
+	s.AddKnownTypes(vitessv1alpha2.SchemeGroupVersion, &vitessv1alpha2.VitessBackupConfigList{})
 
 	// Create a fake client to mock API calls.
 	client := fake.NewFakeClient(objs...)
@@ -372,6 +407,11 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 	lockserver := cluster.GetLockserver()
 	if lockserver == nil {
 		t.Errorf("No embeddded lockserver from cluster after normalization")
+	}
+
+	lockserver := cluster.GetBackupConfig()
+	if lockserver == nil {
+		t.Errorf("No embeddded backupconfig from cluster after normalization")
 	}
 
 	cells := cluster.GetEmbeddedCells()

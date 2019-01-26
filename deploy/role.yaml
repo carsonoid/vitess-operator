@@ -47,5 +47,6 @@ rules:
   - vitessshards
   - vitesstablets
   - vitesslockservers
+  - vitessbackupconfigs
   verbs:
   - '*'

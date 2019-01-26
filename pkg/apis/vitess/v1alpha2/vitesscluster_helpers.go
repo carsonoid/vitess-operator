@@ -96,6 +96,19 @@ func (cluster *VitessCluster) GetLockserver() *VitessLockserver {
 	}
 }
 
+func (cluster *VitessCluster) GeBackupConfig() *VitessBackupConfig {
+	if cluster.Spec.BackupConfig == nil {
+		return nil
+	}
+	return &VitessLockserver{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.GetName(),
+			Namespace: cluster.GetNamespace(),
+		},
+		Spec: *cluster.Spec.BackupConfig,
+	}
+}
+
 func (cluster *VitessCluster) GetCellByID(cellID string) *VitessCell {
 	spec, found := cluster.Spec.Cells[cellID]
 	if !found {

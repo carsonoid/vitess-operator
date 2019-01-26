@@ -6,8 +6,7 @@ A Kubernetes operator for Vitess clusters.
 
 - [x] Create a StatefulSet for each VitessTablet in a VitessCluster
 - [x] Create a Job to elect the initial master in each VitessShard
-- [ ] Create ServiceAccounts
-- [ ] Fix parenting and normalization
+- [X] Fix parenting and normalization
 - [x] Create vtctld Deployment and Service
 - [ ] Create PodDisruptionBudgets
 - [ ] Create ConfigMap

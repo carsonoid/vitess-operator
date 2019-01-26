@@ -21,6 +21,10 @@ type VitessClusterSpec struct {
 	Keyspaces map[string]*VitessKeyspaceSpec `json:"keyspaces,omitempty"`
 
 	KeyspaceSelector []ResourceSelector `json:"keyspaceSelector,omitempty"`
+
+	BackupConfig *VitessBackupConfigSpec `json:"backupConfig,omitempty"`
+
+	BackupConfigRef *corev1.LocalObjectReference `json:"backupConfigRef,omitempty"`
 }
 
 // VitessClusterStatus defines the observed state of VitessCluster

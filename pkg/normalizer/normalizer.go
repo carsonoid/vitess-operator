@@ -48,6 +48,10 @@ func (n *Normalizer) NormalizeCluster(cluster *vitessv1alpha2.VitessCluster) err
 		return err
 	}
 
+	if err := n.NormalizeClusterBackupConfig(cluster); err != nil {
+		return err
+	}
+
 	if err := n.NormalizeClusterCells(cluster); err != nil {
 		return err
 	}
@@ -75,6 +79,23 @@ func (n *Normalizer) NormalizeClusterLockserver(cluster *vitessv1alpha2.VitessCl
 		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
 		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
 		cluster.Spec.Lockserver = &ls.Spec
+	}
+
+	return nil
+}
+
+func (n *Normalizer) NormalizeClusterBackupConfig(cluster *vitessv1alpha2.VitessCluster) error {
+	// Populate the embedded lockserver spec from Ref if given
+	if cluster.Spec.BackupConfigRef != nil {
+		bc := &vitessv1alpha2.VitessBackupConfig{}
+		err := n.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Spec.VitessBackupConfigRef.Name, Namespace: cluster.GetNamespace()}, bc)
+		if err != nil {
+			return ClientError
+		}
+
+		// Since BackupConfig and BackupConfig Ref are mutually-exclusive, it should be safe
+		// to simply populate the BackupConfig struct member with a pointer to the fetched BackupConfig
+		cluster.Spec.BackupConfig = &bc.Spec
 	}
 
 	return nil

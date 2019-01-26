@@ -65,3 +65,50 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(cluster *vitessv1alp
 
 	return recResult, recErr
 }
+
+func (r *ReconcileVitessCluster) ReconcileClusterConfigMap(cluster *vitessv1alpha2.VitessCluster) (reconcile.Result, error) {
+
+	// # shared ConfigMap
+	// apiVersion: v1
+	// kind: ConfigMap
+	// metadata:
+	//   name: vitess-cm
+	// data:
+	//   backup.backup_storage_implementation: {{ .backup.backup_storage_implementation }}
+	//   backup.gcs_backup_storage_bucket: {{ .backup.gcs_backup_storage_bucket }}
+	//   backup.gcs_backup_storage_root: {{ .backup.gcs_backup_storage_root }}
+	//   backup.s3_backup_aws_region: {{ .backup.s3_backup_aws_region }}
+	//   backup.s3_backup_storage_bucket: {{ .backup.s3_backup_storage_bucket }}
+	//   backup.s3_backup_storage_root: {{ .backup.s3_backup_storage_root }}
+	//   backup.s3_backup_server_side_encryption: {{ .backup.s3_backup_server_side_encryption }}
+
+	//   db.flavor: {{ $.Values.vttablet.flavor }}
+	// {{ end }} # end with config
+}
+
+func GetClusterConfigMap(cluster *vitessv1alpha2.VitessCluster) (*corev1.ConfigMap, error) {
+	name := cluster.GetScopedName("vitess", "cm")
+
+	labels := map[string]string{
+		"app":     "vitess",
+		"cluster": shard.GetCluster().GetName(),
+	}
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cluster.GetNamespace(),
+			Labels:    labels,
+		},
+		Data: map[string]string{
+			"backup.backup_storage_implementation":    "{{ .backup.backup_storage_implementation }}",
+			"backup.gcs_backup_storage_bucket":        "{{ .backup.gcs_backup_storage_bucket }}",
+			"backup.gcs_backup_storage_root":          "{{ .backup.gcs_backup_storage_root }}",
+			"backup.s3_backup_aws_region":             "{{ .backup.s3_backup_aws_region }}",
+			"backup.s3_backup_storage_bucket":         "{{ .backup.s3_backup_storage_bucket }}",
+			"backup.s3_backup_storage_root":           "{{ .backup.s3_backup_storage_root }}",
+			"backup.s3_backup_server_side_encryption": "{{ .backup.s3_backup_server_side_encryption }}",
+			"": "",
+		},
+	}, nil
+}
