@@ -23,8 +23,8 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 	// logf.SetLogger(logf.ZapLogger(true))
 
 	var (
-		namespace = "vitess"
-		clusterName    = "vitess-operator"
+		namespace   = "vitess"
+		clusterName = "vitess-operator"
 	)
 
 	// Define a minimal cluster with both a lockserver and lockserverRef given
@@ -80,7 +80,7 @@ func TestTabletTemplates(t *testing.T) {
 
 	var (
 		namespace    = "vitess"
-		clusterName       = "vitess-operator"
+		clusterName  = "vitess-operator"
 		etcd2Address = "etcd2.test.address:12345"
 		etcd2Path    = "etcd2/test/path"
 	)
@@ -108,10 +108,10 @@ func TestTabletTemplates(t *testing.T) {
 						"default": {
 							Defaults: &vitessv1alpha2.VitessShardOptions{
 								Containers: &vitessv1alpha2.TabletContainers{
-									VTTablet: &vitessv1alpha2.VTContainer{
+									VTTablet: &vitessv1alpha2.VTTabletContainer{
 										Image: "test",
 									},
-									MySQL: &vitessv1alpha2.VTContainer{
+									MySQL: &vitessv1alpha2.MySQLContainer{
 										Image: "test",
 									},
 								},

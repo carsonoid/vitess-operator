@@ -65,7 +65,7 @@ set -x
 until [ $VTTABLET_GONE ]; do
 
   # poll every 5 seconds to see if vttablet is still running
-  /vt/bin/busybox wget --spider localhost:15002/debug/vars
+  /vttmp/bin/busybox wget --spider localhost:15002/debug/vars
 
   if [ $? -ne 0 ]; then
     VTTABLET_GONE=true

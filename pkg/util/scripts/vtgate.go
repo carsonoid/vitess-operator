@@ -1,7 +1,7 @@
 package scripts
 
 const (
-  VTGateStart = `val exec /vt/bin/vtgate $(cat <<END_OF_COMMAND
+  VTGateStart = `eval exec /vt/bin/vtgate $(cat <<END_OF_COMMAND
   -cell={{ .Cell.Name }}
   -logtostderr=true
   -stderrthreshold=0
@@ -14,7 +14,7 @@ const (
   -mysql_server_version="5.5.10-Vitess"
   {{ if eq .Lockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}:2379"
+  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}"
   -topo_global_root={{ .Lockserver.Spec.Etcd2.Path }}
   {{ end }}
 END_OF_COMMAND

@@ -14,7 +14,7 @@ const (
   -service_map="grpc-vtctl"
   {{ if eq .Lockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}:2379"
+  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}"
   -topo_global_root={{ .Lockserver.Spec.Etcd2.Path }}
   {{ end }}
 END_OF_COMMAND

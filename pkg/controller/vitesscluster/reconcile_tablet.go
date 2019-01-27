@@ -3,8 +3,10 @@ package vitesscluster
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -21,26 +23,60 @@ import (
 func (r *ReconcileVitessCluster) ReconcileTablet(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
 	log.Info("Reconciling Tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
 
-	// Each embedded tablet should result in a StatefulSet
-	found := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: tablet.GetFullName(), Namespace: tablet.GetNamespace()}, found)
-	if err != nil && errors.IsNotFound(err) {
-		ss, ssErr := getStatefulSetForTablet(tablet)
-		if ssErr != nil {
-			log.Error(ssErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
-			return reconcile.Result{}, ssErr
+	if r, err := r.ReconcileTabletStatefulSet(tablet); err != nil {
+		log.Error(err, "Failed to reconcile tablet statefulset", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+		return r, err
+	} else if r.Requeue {
+		return r, err
+	}
+
+	// Create an init job for tablets of type replica
+	// TODO replace this with direct election via the operator
+	if tablet.Spec.Type == vitessv1alpha2.TabletTypeReplica {
+		if r, err := r.ReconcileReplicaTabletInitJob(tablet); err != nil {
+			log.Error(err, "Failed to reconcile replica tablet master init job", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+			return r, err
+		} else if r.Requeue {
+			return r, err
 		}
-		controllerutil.SetControllerReference(tablet.GetCluster(), ss, r.scheme)
-		// log.Info(fmt.Sprintf("%#v", ss.ObjectMeta))
-		err = r.client.Create(context.TODO(), ss)
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) ReconcileTabletStatefulSet(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+	statefulSet, statefulSetErr := getStatefulSetForTablet(tablet)
+	if statefulSetErr != nil {
+		log.Error(statefulSetErr, "failed to generate StatefulSet for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
+		return reconcile.Result{}, statefulSetErr
+	}
+
+	foundStatefulSet := &appsv1.StatefulSet{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: statefulSet.GetName(), Namespace: tablet.GetCluster().GetNamespace()}, foundStatefulSet)
+	if err != nil && errors.IsNotFound(err) {
+		controllerutil.SetControllerReference(tablet.GetCluster(), statefulSet, r.scheme)
+
+		err = r.client.Create(context.TODO(), statefulSet)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		// Deployment created successfully - return and requeue
-		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		log.Error(err, "failed to get StatefulSet")
 		return reconcile.Result{}, err
+	} else {
+		// This is a cheap way to detect changes and it works for now. However it is not perfect
+		// it will always detect changes because of the defaulting values that get placed
+		// on a statefulset when it is created in the cluster. Those values are not set in the
+		// generated statefulset so it is always different. The extra updates are harmless and don't actually
+		// trigger statefulset upgrades.
+		// TODO more exact diff detection
+		if !reflect.DeepEqual(foundStatefulSet, statefulSet.Spec) {
+			log.Info("Updating statefulSet for tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+			err = r.client.Update(context.TODO(), statefulSet)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -148,7 +184,7 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      tablet.GetFullName(),
+			Name:      tablet.GetScopedName(string(tablet.Spec.Type)),
 			Namespace: tablet.GetNamespace(),
 			Labels:    selfLabels,
 		},
@@ -171,11 +207,9 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 					Affinity:       affinity,
 					Containers:     containers,
 					InitContainers: initContainers,
-					//   - emptyDir: {}
-					// name: tablet
 					Volumes: []corev1.Volume{
 						{
-							Name: "tablet",
+							Name: "vt",
 							VolumeSource: corev1.VolumeSource{
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
@@ -206,8 +240,8 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 }
 
 func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
-	dbName, dbConf := tablet.GetDBNameAndConfig()
-	if dbConf == nil {
+	mysql := tablet.GetMySQLContainer()
+	if mysql == nil {
 		return containers, initContainers, fmt.Errorf("No database container configuration found")
 	}
 
@@ -232,15 +266,15 @@ func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers [
 					MountPath: "/vtdataroot",
 				},
 				{
-					Name:      "tablet",
+					Name:      "vt",
 					MountPath: "/vttmp",
 				},
 			},
 		})
 
 	containers = append(containers, corev1.Container{
-		Name:            dbName,
-		Image:           dbConf.Image,
+		Name:            "mysql",
+		Image:           mysql.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"bash"},
 		Args: []string{
@@ -275,21 +309,21 @@ func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers [
 			SuccessThreshold:    1,
 			FailureThreshold:    3,
 		},
-		Resources: dbConf.Resources,
+		Resources: mysql.Resources,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "vtdataroot",
 				MountPath: "/vtdataroot",
 			},
 			{
-				Name:      "tablet",
-				MountPath: "/tablet",
+				Name:      "vt",
+				MountPath: "/vt",
 			},
 		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "VTROOT",
-				Value: "/tablet",
+				Value: "/vt",
 			},
 			{
 				Name:  "VTDATAROOT",
@@ -297,7 +331,7 @@ func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers [
 			},
 			{
 				Name:  "GOBIN",
-				Value: "/tablet/bin",
+				Value: "/vt/bin",
 			},
 			{
 				Name:  "VT_MYSQL_ROOT",
@@ -305,18 +339,11 @@ func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers [
 			},
 			{
 				Name:  "PKG_CONFIG_PATH",
-				Value: "/tablet/lib",
+				Value: "/vt/lib",
 			},
 			{
-				Name: "VT_DB_FLAVOR",
-				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						Key: "db.flavor",
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "vitess-cm",
-						},
-					},
-				},
+				Name:  "VT_DB_FLAVOR",
+				Value: mysql.DBFlavor,
 			},
 		},
 	})
@@ -325,8 +352,8 @@ func GetTabletMysqlContainers(tablet *vitessv1alpha2.VitessTablet) (containers [
 }
 
 func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (containers []corev1.Container, initContainers []corev1.Container, err error) {
-	tabletConf := tablet.GetTabletConfig()
-	if tabletConf == nil {
+	vttablet := tablet.GetVTTabletContainer()
+	if vttablet == nil {
 		err = fmt.Errorf("No database container configuration found")
 		return
 	}
@@ -358,7 +385,7 @@ func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (container
 	containers = append(containers,
 		corev1.Container{
 			Name:            "vttablet",
-			Image:           tabletConf.Image,
+			Image:           vttablet.Image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"bash"},
 			Args: []string{
@@ -429,7 +456,7 @@ func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (container
 			Env: []corev1.EnvVar{
 				{
 					Name:  "VTROOT",
-					Value: "/tablet",
+					Value: "/vt",
 				},
 				{
 					Name:  "VTDATAROOT",
@@ -437,7 +464,7 @@ func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (container
 				},
 				{
 					Name:  "GOBIN",
-					Value: "/tablet/bin",
+					Value: "/vt/bin",
 				},
 				{
 					Name:  "VT_MYSQL_ROOT",
@@ -445,18 +472,11 @@ func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (container
 				},
 				{
 					Name:  "PKG_CONFIG_PATH",
-					Value: "/tablet/lib",
+					Value: "/vt/lib",
 				},
 				{
-					Name: "VT_DB_FLAVOR",
-					ValueFrom: &corev1.EnvVarSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							Key: "db.flavor",
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: "vitess-cm",
-							},
-						},
-					},
+					Name:  "VT_DB_FLAVOR",
+					Value: vttablet.DBFlavor,
 				},
 			},
 		},
@@ -498,4 +518,82 @@ func GetTabletVTTabletContainers(tablet *vitessv1alpha2.VitessTablet) (container
 	}
 
 	return
+}
+
+func (r *ReconcileVitessCluster) ReconcileReplicaTabletInitJob(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
+	job, jobErr := GetReplicaTabletInitMasterJob(tablet)
+	if jobErr != nil {
+		log.Error(jobErr, "failed to generate master elect job for replica VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
+		return reconcile.Result{}, jobErr
+	}
+
+	found := &batchv1.Job{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
+	if err != nil && errors.IsNotFound(err) {
+		controllerutil.SetControllerReference(tablet.GetCluster(), job, r.scheme)
+		err = r.client.Create(context.TODO(), job)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		// Job created successfully - return and requeue
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "failed to get Job")
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
+}
+
+func GetReplicaTabletInitMasterJob(tablet *vitessv1alpha2.VitessTablet) (*batchv1.Job, error) {
+	jobName := tablet.GetScopedName("init-replica-master")
+
+	scripts := scripts.NewContainerScriptGenerator("init_replica_master", tablet)
+	if err := scripts.Generate(); err != nil {
+		return nil, err
+	}
+
+	jobLabels := map[string]string{
+		"app":                "vitess",
+		"cluster":            tablet.GetCluster().GetName(),
+		"keyspace":           tablet.GetKeyspace().GetName(),
+		"shard":              tablet.GetShard().GetName(),
+		"component":          "vttablet-replica-elector",
+		"initShardMasterJob": "true",
+		"job-name":           jobName,
+	}
+
+	return &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      jobName,
+			Namespace: tablet.GetCluster().GetNamespace(),
+			Labels:    jobLabels,
+		},
+		Spec: batchv1.JobSpec{
+			BackoffLimit: getInt32Ptr(1),
+			Completions:  getInt32Ptr(1),
+			Parallelism:  getInt32Ptr(1),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: jobLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "init-master",
+							Image: "vitess/vtctlclient:helm-1.0.3", // TODO use CRD w/default
+							Command: []string{
+								"bash",
+							},
+							Args: []string{
+								"-c",
+								scripts.Start,
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+				},
+			},
+		},
+	}, nil
 }

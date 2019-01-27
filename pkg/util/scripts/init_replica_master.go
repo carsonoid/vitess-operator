@@ -1,10 +1,10 @@
 package scripts
 
 var (
-  InitShardMaster = `
+  InitReplicaMaster = `
 set -ex
 
-VTCTLD_SVC={{ .Cluster.Name }}-vtctld.default:15999
+VTCTLD_SVC={{ .Cluster.Name }}-{{ .Cell.Name }}-vtctld.{{ .Cluster.Namespace }}:15999
 SECONDS=0
 TIMEOUT_SECONDS=600
 VTCTL_EXTRA_FLAGS=()
@@ -23,7 +23,7 @@ until [ $TABLETS_READY ]; do
   cellTablets="$(vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC ListAllTablets {{ .Cell.Name }})"
 
   # filter to only the tablets in our current shard
-  shardTablets=$( echo "$cellTablets" | awk 'substr( $5,1,24 ) == "{{ .Cell.Name }}-{{ .Keyspace.Name }}-{{ .Shard.Name }}" {print $0}')
+  shardTablets=$( echo "$cellTablets" | grep -w '{{ .Cluster.Name }}-{{ .Cell.Name }}-{{ .Keyspace.Name }}-{{ .Shard.Name }}' )
 
   # check for a master tablet from the ListAllTablets call
   masterTablet=$( echo "$shardTablets" | awk '$4 == "master" {print $1}')
@@ -58,7 +58,7 @@ until [ $TABLETS_READY ]; do
 done
 
 # find the tablet id for the "-replica-0" stateful set for a given cell, keyspace and shard
-tablet_id=$( echo "$shardTablets" | awk 'substr( $5,1,34 ) == "{{ .ScopedName }}-0" {print $1}')
+tablet_id=$( echo "$shardTablets" | grep -w '{{ .ScopedName }}-replica-0' | awk '{print $1}')
 
 # initialize the shard master
 until vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC InitShardMaster -force {{ .Keyspace.Name }}/{{ .Shard.Name }} $tablet_id; do

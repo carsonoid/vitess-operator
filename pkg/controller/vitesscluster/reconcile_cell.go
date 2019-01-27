@@ -277,7 +277,7 @@ func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 		},
 		Spec: appsv1.DeploymentSpec{
 			ProgressDeadlineSeconds: getInt32Ptr(600),
-			Replicas:                getInt32Ptr(3),
+			Replicas:                getInt32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: vtgateLabels,
 			},
@@ -289,8 +289,8 @@ func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 					Affinity: affinity,
 					Containers: []corev1.Container{
 						{
-							Name:  "vtctld",
-							Image: "vitess/vtctld:helm-1.0.3", // TODO use CRD w/default
+							Name:  "vtgate",
+							Image: "vitess/vtgate:helm-1.0.3", // TODO use CRD w/default
 							Command: []string{
 								"bash",
 							},

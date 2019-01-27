@@ -70,19 +70,15 @@ func (tablet *VitessTablet) GetShard() *VitessShard {
 	return tablet.Spec.parent.Shard
 }
 
-func (tablet *VitessTablet) GetFullName() string {
-	return strings.Join([]string{
-		tablet.GetScopedName(),
-	}, "-")
-}
-
-func (tablet *VitessTablet) GetScopedName() string {
-	return strings.Join([]string{
-		tablet.GetCluster().GetName(),
-		tablet.GetCell().GetName(),
-		tablet.GetKeyspace().GetName(),
-		tablet.GetShard().GetName(),
-	}, "-")
+func (tablet *VitessTablet) GetScopedName(extra ...string) string {
+	return strings.Join(append(
+		[]string{
+			tablet.GetCluster().GetName(),
+			tablet.GetCell().GetName(),
+			tablet.GetKeyspace().GetName(),
+			tablet.GetShard().GetName(),
+		},
+		extra...), "-")
 }
 
 func (tablet *VitessTablet) GetReplicas() *int32 {
@@ -98,7 +94,7 @@ func (tablet *VitessTablet) GetReplicas() *int32 {
 	return &def
 }
 
-func (tablet *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
+func (tablet *VitessTablet) GetMySQLContainer() *MySQLContainer {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
 		tablet,
@@ -107,15 +103,18 @@ func (tablet *VitessTablet) GetDBNameAndConfig() (string, *VTContainer) {
 	}
 
 	for _, p := range providers {
-		// TODO: More DB providers
 		if containers := p.GetTabletContainers(); containers != nil && containers.MySQL != nil {
-			return "mysql", containers.MySQL
+			// TODO get defaults from full range of providers
+			if containers.MySQL.DBFlavor == "" && containers.DBFlavor != "" {
+				containers.MySQL.DBFlavor = containers.DBFlavor
+			}
+			return containers.MySQL
 		}
 	}
-	return "", nil
+	return nil
 }
 
-func (tablet *VitessTablet) GetTabletConfig() *VTContainer {
+func (tablet *VitessTablet) GetVTTabletContainer() *VTTabletContainer {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
 		tablet,
@@ -124,8 +123,11 @@ func (tablet *VitessTablet) GetTabletConfig() *VTContainer {
 	}
 
 	for _, p := range providers {
-		// TODO: More DB providers
 		if containers := p.GetTabletContainers(); containers != nil && containers.VTTablet != nil {
+			// TODO get defaults from full range of providers
+			if containers.VTTablet.DBFlavor == "" && containers.DBFlavor != "" {
+				containers.VTTablet.DBFlavor = containers.DBFlavor
+			}
 			return containers.VTTablet
 		}
 	}

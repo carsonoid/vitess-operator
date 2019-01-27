@@ -54,8 +54,8 @@ func (csg *ContainerScriptGenerator) Generate() error {
 		if err != nil {
 			return err
 		}
-	case "init_shard_master":
-		csg.Start, err = csg.getTemplatedScript("init_shard_master", InitShardMaster)
+	case "init_replica_master":
+		csg.Start, err = csg.getTemplatedScript("init_replica_master", InitReplicaMaster)
 		if err != nil {
 			return err
 		}

@@ -30,14 +30,27 @@ const (
 )
 
 type TabletContainers struct {
-	VTTablet *VTContainer `json:"vttablet"`
-	MySQL    *VTContainer `json:"mysql"`
+	DBFlavor string `json:"dbFlavor,omitempty"`
+
+	MySQL *MySQLContainer `json:"mysql"`
+
+	VTTablet *VTTabletContainer `json:"vttablet"`
 }
 
-type VTContainer struct {
+type MySQLContainer struct {
 	Image string `json:"image"`
 
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	DBFlavor string `json:"dbFlavor,omitempty"`
+}
+
+type VTTabletContainer struct {
+	Image string `json:"image"`
+
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	DBFlavor string `json:"dbFlavor,omitempty"`
 }
 
 type KeyRange struct {

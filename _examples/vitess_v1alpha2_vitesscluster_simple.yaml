@@ -28,7 +28,7 @@ spec:
       shards:
         "0":
           defaults:
-            replicas: 1
+            replicas: 2
             containers:
               mysql:
                 image: percona:5.7.23
