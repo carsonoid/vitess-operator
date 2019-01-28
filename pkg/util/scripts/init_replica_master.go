@@ -23,7 +23,7 @@ until [ $TABLETS_READY ]; do
   cellTablets="$(vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC ListAllTablets {{ .Cell.Name }})"
 
   # filter to only the tablets in our current shard
-  shardTablets=$( echo "$cellTablets" | grep -w '{{ .Cluster.Name }}-{{ .Cell.Name }}-{{ .Keyspace.Name }}-{{ .Shard.Name }}' )
+  shardTablets=$( echo "$cellTablets" | grep -w '{{ .Cluster.Name }}-{{ .Cell.Name }}-{{ .Keyspace.Name }}-{{ .Shard.Name }}' || : )
 
   # check for a master tablet from the ListAllTablets call
   masterTablet=$( echo "$shardTablets" | awk '$4 == "master" {print $1}')
@@ -33,7 +33,7 @@ until [ $TABLETS_READY ]; do
   fi
 
   # check for a master tablet from the GetShard call
-  master_alias=$(vtctlclient ${VTLCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC GetShard {{ .Keyspace.Name }}/{{ .Shard.Name }} | jq '.master_alias.uid')
+  master_alias=$(vtctlclient ${VTLCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC GetShard {{ .Keyspace.Name }}/{{ .Shard.Spec.KeyRange }} | jq '.master_alias.uid')
   if [ "$master_alias" != "null" -a "$master_alias" != "" ]; then
       echo "'$master_alias' is already the master tablet, exiting without running InitShardMaster"
       exit
@@ -61,7 +61,7 @@ done
 tablet_id=$( echo "$shardTablets" | grep -w '{{ .ScopedName }}-replica-0' | awk '{print $1}')
 
 # initialize the shard master
-until vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC InitShardMaster -force {{ .Keyspace.Name }}/{{ .Shard.Name }} $tablet_id; do
+until vtctlclient ${VTCTL_EXTRA_FLAGS[@]} -server $VTCTLD_SVC InitShardMaster -force {{ .Keyspace.Name }}/{{ .Shard.Spec.KeyRange }} $tablet_id; do
   if (( $SECONDS > $TIMEOUT_SECONDS )); then
     echo "timed out waiting for InitShardMaster to succeed"
     exit 1

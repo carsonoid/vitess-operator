@@ -54,7 +54,7 @@ type VTTabletContainer struct {
 }
 
 type KeyRange struct {
-	From string `json:"from"`
+	From string `json:"from,omitempty"`
 
-	To string `json:"to"`
+	To string `json:"to,omitempty"`
 }

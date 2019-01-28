@@ -11,7 +11,7 @@ import (
 type VitessShardSpec struct {
 	Defaults *VitessShardOptions `json:"defaults"`
 
-	KeyRange KeyRange `json:"keyrange"`
+	KeyRange KeyRange `json:"keyRange,omitempty"`
 
 	Tablets map[string]*VitessTabletSpec `json:"tablets"`
 
