@@ -158,7 +158,7 @@ func TestValidation(t *testing.T) {
 				},
 				Spec: vitessv1alpha2.VitessTabletSpec{
 					TabletID: 101,
-					Cell:     "cell",
+					CellID:   "cell",
 				},
 			},
 			ValidationErrorNoTablets,
@@ -312,7 +312,7 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 			},
 			Spec: vitessv1alpha2.VitessTabletSpec{
 				TabletID: 101,
-				Cell:     "cell",
+				CellID:   "cell",
 			},
 		},
 		cluster,
@@ -354,14 +354,14 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 	}
 
 	// Test Parenting
-	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
-		shards := keyspace.GetEmbeddedShards()
+	for _, keyspace := range cluster.Keyspaces() {
+		shards := keyspace.Shards()
 		if len(shards) == 0 {
 			t.Fatalf("No embedded shards from keyspace after normalization")
 		}
 
 		for _, shard := range shards {
-			tablets := shard.GetEmbeddedTablets()
+			tablets := shard.Tablets()
 			if len(tablets) == 0 {
 				t.Fatalf("No embedded tablets from shard after normalization")
 			}
@@ -369,39 +369,39 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 	}
 
 	// Child tests from the top down
-	lockserver := cluster.GetLockserver()
+	lockserver := cluster.Lockserver()
 	if lockserver == nil {
 		t.Errorf("No embeddded lockserver from cluster after normalization")
 	}
 
-	cells := cluster.GetEmbeddedCells()
+	cells := cluster.Cells()
 	if len(cells) == 0 {
 		t.Errorf("No embedded cells from cluster after normalization")
 	}
 
-	shards := cluster.GetEmbeddedShards()
+	shards := cluster.Shards()
 	if len(shards) == 0 {
 		t.Errorf("No embedded shards from cluster after normalization")
 	}
 
-	tablets := cluster.GetEmbeddedTablets()
+	tablets := cluster.Tablets()
 	if len(tablets) == 0 {
 		t.Errorf("No embedded tablets from cluster after normalization")
 	}
 
-	keyspaces := cluster.GetEmbeddedKeyspaces()
+	keyspaces := cluster.Keyspaces()
 	if len(keyspaces) == 0 {
 		t.Errorf("No embedded keyspaces from cluster after normalization")
 	}
 
 	for _, keyspace := range keyspaces {
-		shards := keyspace.GetEmbeddedShards()
+		shards := keyspace.Shards()
 		if len(shards) == 0 {
 			t.Errorf("No embedded shards from keyspace after normalization")
 		}
 
 		for _, shard := range shards {
-			tablets := shard.GetEmbeddedTablets()
+			tablets := shard.Tablets()
 			if len(tablets) == 0 {
 				t.Errorf("No embedded tablets from shard after normalization")
 			}
@@ -412,41 +412,41 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 
 	// every tablet should have a parent cell, cluster, keyspace, and shard
 	for _, tablet := range tablets {
-		if tablet.GetCell() == nil {
+		if tablet.Cell() == nil {
 			t.Errorf("No parent cell in tablet after normalization")
 		}
-		if tablet.GetCluster() == nil {
+		if tablet.Cluster() == nil {
 			t.Errorf("No parent cluster in tablet after normalization")
 		}
-		if tablet.GetKeyspace() == nil {
+		if tablet.Keyspace() == nil {
 			t.Errorf("No parent keyspace in tablet after normalization")
 		}
-		if tablet.GetShard() == nil {
+		if tablet.Shard() == nil {
 			t.Errorf("No parent shard in tablet after normalization")
 		}
 	}
 
 	// every shard should have a parent keyspace and cluster
 	for _, shard := range shards {
-		if shard.GetKeyspace() == nil {
+		if shard.Keyspace() == nil {
 			t.Errorf("No parent keyspace in shard after normalization")
 		}
 
-		if shard.GetCluster() == nil {
+		if shard.Cluster() == nil {
 			t.Errorf("No parent cluster in shard after normalization")
 		}
 	}
 
 	// every keyspace should have a parent cluster
 	for _, keyspace := range keyspaces {
-		if keyspace.GetCluster() == nil {
+		if keyspace.Cluster() == nil {
 			t.Errorf("No parent cluster in keyspace after normalization")
 		}
 	}
 
 	// every cell should have a parent cluster
 	for _, cell := range cells {
-		if cell.GetCluster() == nil {
+		if cell.Cluster() == nil {
 			t.Errorf("No parent cluster in cell after normalization")
 		}
 	}

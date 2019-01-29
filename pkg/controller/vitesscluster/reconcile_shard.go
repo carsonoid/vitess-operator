@@ -7,10 +7,10 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileShard(shard *vitessv1alpha2.VitessShard) (reconcile.Result, error) {
-	log.Info("Reconciling Shard", "Namespace", shard.GetNamespace(), "VitessCluster.Name", shard.GetCluster().GetName(), "Shard.Name", shard.GetName())
+	log.Info("Reconciling Shard", "Namespace", shard.GetNamespace(), "VitessCluster.Name", shard.Cluster().GetName(), "Shard.Name", shard.GetName())
 
 	// Reconcile all shard tablets
-	for _, tablet := range shard.GetEmbeddedTablets() {
+	for _, tablet := range shard.Tablets() {
 		if result, err := r.ReconcileTablet(tablet); err != nil {
 			return result, err
 		}

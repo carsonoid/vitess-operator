@@ -1,114 +1,53 @@
 package v1alpha2
 
 import (
-	"fmt"
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetEmbeddedCells processes the embedded cell map and returns a slice of cells
-func (cluster *VitessCluster) GetEmbeddedCells() (ret []*VitessCell) {
-	for name, spec := range cluster.Spec.Cells {
-		ret = append(ret, &VitessCell{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: cluster.GetNamespace(),
-			},
-			Spec: *spec,
-		})
-	}
-	return
+func (cluster *VitessCluster) Cells() []*VitessCell {
+	return cluster.Spec.Cells
 }
 
-func (cluster *VitessCluster) EmbedCell(cell *VitessCell) error {
-	// First check the the cells map is initialized
-	if cluster.Spec.Cells == nil {
-		cluster.Spec.Cells = make(map[string]*VitessCellSpec)
-	}
-
-	// Then check to make sure it is not already defined in the
-	// embedded resources
-	if _, exists := cluster.Spec.Cells[cell.GetName()]; exists {
-		return fmt.Errorf("Error merging VitessCell: %s: Already defined in the VitessCluster", cell.GetName())
-	}
-	cluster.Spec.Cells[cell.GetName()] = &cell.DeepCopy().Spec
-
-	return nil
+func (cluster *VitessCluster) EmbedCellCopy(cell *VitessCell) {
+	cluster.Spec.Cells = append(cluster.Spec.Cells, cell.DeepCopy())
 }
 
-// GetEmbeddedKeyspaces processes the embedded keyspace map and returns a slice of keyspaces
-func (cluster *VitessCluster) GetEmbeddedKeyspaces() (ret []*VitessKeyspace) {
-	for name, spec := range cluster.Spec.Keyspaces {
-		ret = append(ret, &VitessKeyspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: cluster.GetNamespace(),
-			},
-			Spec: *spec,
-		})
-	}
-	return
+func (cluster *VitessCluster) Keyspaces() []*VitessKeyspace {
+	return cluster.Spec.Keyspaces
 }
 
-func (cluster *VitessCluster) EmbedKeyspace(keyspace *VitessKeyspace) error {
-	// First check the the cells map is initialized
-	if cluster.Spec.Keyspaces == nil {
-		cluster.Spec.Keyspaces = make(map[string]*VitessKeyspaceSpec)
-	}
-
-	// Then check to make sure it is not already defined in the
-	// embedded resources
-	if _, exists := cluster.Spec.Keyspaces[keyspace.GetName()]; exists {
-		return fmt.Errorf("Error merging VitessKeyspace %s: Already defined in the VitessCluster", keyspace.GetName())
-	}
-	cluster.Spec.Keyspaces[keyspace.GetName()] = &keyspace.DeepCopy().Spec
-
-	return nil
+func (cluster *VitessCluster) EmbedKeyspaceCopy(keyspace *VitessKeyspace) {
+	cluster.Spec.Keyspaces = append(cluster.Spec.Keyspaces, keyspace.DeepCopy())
 }
 
-// GetEmbeddedShards processes the embedded keyspace map and returns a slice of shards
-func (cluster *VitessCluster) GetEmbeddedShards() (ret []*VitessShard) {
-	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
-		ret = append(ret, keyspace.GetEmbeddedShards()...)
+func (cluster *VitessCluster) Shards() []*VitessShard {
+	var shards []*VitessShard
+	for _, keyspace := range cluster.Keyspaces() {
+		shards = append(shards, keyspace.Shards()...)
 	}
-	return
+	return shards
 }
 
-// GetEmbeddedShards processes the embedded keyspace map and returns a slice of shards
-func (cluster *VitessCluster) GetEmbeddedTablets() (ret []*VitessTablet) {
-	for _, shard := range cluster.GetEmbeddedShards() {
-		ret = append(ret, shard.GetEmbeddedTablets()...)
+func (cluster *VitessCluster) Tablets() []*VitessTablet {
+	var tablets []*VitessTablet
+	for _, shard := range cluster.Shards() {
+		tablets = append(tablets, shard.Tablets()...)
 	}
-	return
+	return tablets
 }
 
-func (cluster *VitessCluster) GetLockserver() *VitessLockserver {
-	if cluster.Spec.Lockserver == nil {
-		return nil
-	}
-	return &VitessLockserver{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.GetName(),
-			Namespace: cluster.GetNamespace(),
-		},
-		Spec: *cluster.Spec.Lockserver,
-	}
+func (cluster *VitessCluster) Lockserver() *VitessLockserver {
+	return cluster.Spec.Lockserver
 }
 
 func (cluster *VitessCluster) GetCellByID(cellID string) *VitessCell {
-	spec, found := cluster.Spec.Cells[cellID]
-	if !found {
-		return nil
+	for _, cell := range cluster.Cells() {
+		if cell.GetName() == cellID {
+			return cell
+		}
 	}
 
-	return &VitessCell{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cellID,
-			Namespace: cluster.GetNamespace(),
-		},
-		Spec: *spec,
-	}
+	return nil
 }
 
 func (cluster *VitessCluster) GetScopedName(extra ...string) string {

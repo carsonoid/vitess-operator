@@ -10,11 +10,11 @@ import (
 
 // VitessTabletSpec defines the desired state of VitessTablet
 type VitessTabletSpec struct {
-	TabletID int64 `json:"tabletId"`
+	TabletID int64 `json:"tabletID"`
 
 	Replicas *int32 `json:"replicas"`
 
-	Cell string `json:"cell"`
+	CellID string `json:"cellID"`
 
 	Keyrange KeyRange `json:"keyrange"`
 
@@ -34,9 +34,10 @@ type VitessTabletSpec struct {
 }
 
 type VitessTabletParents struct {
-	VitessShardParents
-	Shard *VitessShard
-	Cell  *VitessCell
+	Cluster  *VitessCluster
+	Cell     *VitessCell
+	Keyspace *VitessKeyspace
+	Shard    *VitessShard
 }
 
 type TabletType string
@@ -70,11 +71,6 @@ type TabletCredentials struct {
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty" protobuf:"bytes,4,opt,name=secretRef"`
 }
 
-// VitessTabletStatus defines the observed state of VitessTablet
-type VitessTabletStatus struct {
-	State string `json:"state,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VitessTablet is the Schema for the vitesstablets API
@@ -83,8 +79,7 @@ type VitessTablet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VitessTabletSpec   `json:"spec,omitempty"`
-	Status VitessTabletStatus `json:"status,omitempty"`
+	Spec VitessTabletSpec `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

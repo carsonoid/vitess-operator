@@ -5,23 +5,23 @@ import (
 )
 
 func (n *Normalizer) ValidateCluster(cluster *vitessv1alpha2.VitessCluster) error {
-	if cluster.GetLockserver() == nil {
+	if cluster.Lockserver() == nil {
 		return ValidationErrorNoLockserver
 	}
 
-	if len(cluster.GetEmbeddedCells()) == 0 {
+	if len(cluster.Cells()) == 0 {
 		return ValidationErrorNoCells
 	}
 
-	if len(cluster.GetEmbeddedKeyspaces()) == 0 {
+	if len(cluster.Keyspaces()) == 0 {
 		return ValidationErrorNoKeyspaces
 	}
 
-	if len(cluster.GetEmbeddedShards()) == 0 {
+	if len(cluster.Shards()) == 0 {
 		return ValidationErrorNoShards
 	}
 
-	if len(cluster.GetEmbeddedTablets()) == 0 {
+	if len(cluster.Tablets()) == 0 {
 		return ValidationErrorNoTablets
 	}
 

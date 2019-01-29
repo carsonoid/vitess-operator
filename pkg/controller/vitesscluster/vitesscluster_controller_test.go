@@ -156,7 +156,7 @@ func TestTabletTemplates(t *testing.T) {
 		t.Fatalf("Error normalizing cluster: %s", err)
 	}
 
-	for _, tablet := range cluster.GetEmbeddedTablets() {
+	for _, tablet := range cluster.Tablets() {
 		vttabletContainers, vttabletInitContainers, err := GetTabletVTTabletContainers(tablet)
 		if err != nil {
 			t.Fatalf("Error generating vttablet container for tablet: %s", err)

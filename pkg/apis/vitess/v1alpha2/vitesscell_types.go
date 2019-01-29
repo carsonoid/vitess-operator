@@ -66,11 +66,6 @@ type VTComponent struct {
 	ContainerSpec []*corev1.Container `json:"containerSpec,omitempty"`
 }
 
-// VitessCellStatus defines the observed state of VitessCell
-type VitessCellStatus struct {
-	State string `json:"state,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VitessCell is the Schema for the vitesscells API
@@ -79,8 +74,7 @@ type VitessCell struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VitessCellSpec   `json:"spec,omitempty"`
-	Status VitessCellStatus `json:"status,omitempty"`
+	Spec VitessCellSpec `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

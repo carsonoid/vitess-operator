@@ -1,9 +1,6 @@
 package vitesscluster
 
 import (
-	// "context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
@@ -16,13 +13,13 @@ func (r *ReconcileVitessCluster) ReconcileClusterResources(cluster *vitessv1alph
 		return r, err
 	}
 
-	for _, cell := range cluster.GetEmbeddedCells() {
+	for _, cell := range cluster.Cells() {
 		if r, err := r.ReconcileCell(cell); err != nil || r.Requeue {
 			return r, err
 		}
 	}
 
-	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
+	for _, keyspace := range cluster.Keyspaces() {
 		if r, err := r.ReconcileKeyspace(keyspace); err != nil || r.Requeue {
 			return r, err
 		}
@@ -35,13 +32,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(cluster *vitessv1alp
 	log.Info("Reconciling Embedded Lockserver")
 
 	// Build a complete VitessLockserver
-	lockserver := &vitessv1alpha2.VitessLockserver{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.GetName(),
-			Namespace: cluster.GetNamespace(),
-		},
-		Spec: *cluster.Spec.Lockserver.DeepCopy(),
-	}
+	lockserver := cluster.Spec.Lockserver.DeepCopy()
 
 	if cluster.Status.Lockserver != nil {
 		// If status is not empty, deepcopy it into the tmp object
@@ -52,7 +43,7 @@ func (r *ReconcileVitessCluster) ReconcileClusterLockserver(cluster *vitessv1alp
 	recResult, recErr := lockserver_controller.ReconcileObject(lockserver, log)
 
 	// Split and store the spec and status in the parent VitessCluster
-	cluster.Spec.Lockserver = lockserver.Spec.DeepCopy()
+	cluster.Spec.Lockserver = lockserver.DeepCopy()
 	cluster.Status.Lockserver = lockserver.Status.DeepCopy()
 
 	// Using the  split client here breaks the cluster normalization

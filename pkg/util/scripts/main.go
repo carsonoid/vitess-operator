@@ -102,11 +102,11 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 	// Configure tablet params
 	if tablet, ok := csg.Object.(*vitessv1alpha2.VitessTablet); ok {
 		params = map[string]interface{}{
-			"Lockserver": tablet.GetLockserver(),
-			"Cluster":    tablet.GetCluster(),
-			"Cell":       tablet.GetCell(),
-			"Keyspace":   tablet.GetKeyspace(),
-			"Shard":      tablet.GetShard(),
+			"Lockserver": tablet.Lockserver(),
+			"Cluster":    tablet.Cluster(),
+			"Cell":       tablet.Cell(),
+			"Keyspace":   tablet.Keyspace(),
+			"Shard":      tablet.Shard(),
 			"Tablet":     tablet,
 			"ScopedName": tablet.GetScopedName(),
 		}
@@ -115,8 +115,8 @@ func (csg *ContainerScriptGenerator) getTemplatedScript(name string, templateStr
 	// Configure shard params
 	if cell, ok := csg.Object.(*vitessv1alpha2.VitessCell); ok {
 		params = map[string]interface{}{
-			"Lockserver": cell.GetLockserver(),
-			"Cluster":    cell.GetCluster(),
+			"Lockserver": cell.Lockserver(),
+			"Cluster":    cell.Cluster(),
 			"Cell":       cell,
 			"ScopedName": cell.GetScopedName(),
 		}

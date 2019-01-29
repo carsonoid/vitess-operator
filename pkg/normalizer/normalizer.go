@@ -74,7 +74,7 @@ func (n *Normalizer) NormalizeClusterLockserver(cluster *vitessv1alpha2.VitessCl
 
 		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
 		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
-		cluster.Spec.Lockserver = &ls.Spec
+		cluster.Spec.Lockserver = ls
 	}
 
 	return nil
@@ -89,16 +89,12 @@ func (n *Normalizer) NormalizeClusterCells(cluster *vitessv1alpha2.VitessCluster
 
 		log.Info(fmt.Sprintf("VitessCluster's cellSelector matched %d cells", len(cellList.Items)))
 		for _, cell := range cellList.Items {
-			if err := cluster.EmbedCell(&cell); err != nil {
-				return fmt.Errorf("Error adding matched cell to cluster %s", err)
-			}
+			cluster.EmbedCellCopy(&cell)
 		}
 	}
 
-	for _, cell := range cluster.GetEmbeddedCells() {
-		cell.SetParent(cluster)
-
-		cluster.Spec.Cells[cell.GetName()] = cell.Spec.DeepCopy()
+	for _, cell := range cluster.Cells() {
+		cell.SetParentCluster(cluster)
 	}
 
 	return nil
@@ -113,20 +109,16 @@ func (n *Normalizer) NormalizeClusterKeyspaces(cluster *vitessv1alpha2.VitessClu
 
 		log.Info(fmt.Sprintf("VitessCluster's keyspaceSelector matched %d keyspaces", len(keyspaceList.Items)))
 		for _, keyspace := range keyspaceList.Items {
-			if err := cluster.EmbedKeyspace(&keyspace); err != nil {
-				return fmt.Errorf("Error adding matched keyspace to cluster %s", err)
-			}
+			cluster.EmbedKeyspaceCopy(&keyspace)
 		}
 	}
 
-	for _, keyspace := range cluster.GetEmbeddedKeyspaces() {
-		keyspace.SetParent(cluster)
+	for _, keyspace := range cluster.Keyspaces() {
+		keyspace.SetParentCluster(cluster)
 
 		if err := n.NormalizeClusterKeyspaceShards(cluster, keyspace); err != nil {
 			return err
 		}
-
-		cluster.Spec.Keyspaces[keyspace.GetName()] = keyspace.Spec.DeepCopy()
 	}
 
 	return nil
@@ -141,19 +133,16 @@ func (n *Normalizer) NormalizeClusterKeyspaceShards(cluster *vitessv1alpha2.Vite
 
 	log.Info(fmt.Sprintf("VitessKeyspace's shardSelector matched %d shards", len(shardList.Items)))
 	for _, shard := range shardList.Items {
-		if err := keyspace.EmbedShard(&shard); err != nil {
-			return fmt.Errorf("Error adding matched shard to keyspace %s", err)
-		}
+		keyspace.EmbedShardCopy(&shard)
 	}
 
-	for _, shard := range keyspace.GetEmbeddedShards() {
-		shard.SetParent(keyspace)
+	for _, shard := range keyspace.Shards() {
+		shard.SetParentCluster(keyspace.Cluster())
+		shard.SetParentKeyspace(keyspace)
 
 		if err := n.NormalizeClusterShardTablets(cluster, shard); err != nil {
 			return err
 		}
-
-		keyspace.Spec.Shards[shard.GetName()] = shard.Spec.DeepCopy()
 	}
 
 	return nil
@@ -168,15 +157,14 @@ func (n *Normalizer) NormalizeClusterShardTablets(cluster *vitessv1alpha2.Vitess
 
 	log.Info(fmt.Sprintf("VitessShard's tabletSelector matched %d tablets", len(tabletList.Items)))
 	for _, tablet := range tabletList.Items {
-		if err := shard.EmbedTablet(&tablet); err != nil {
-			return fmt.Errorf("Error adding matched tablets to shard %s", err)
-		}
+		shard.EmbedTabletCopy(&tablet)
 	}
 
-	for _, tablet := range shard.GetEmbeddedTablets() {
-		tablet.SetParents(shard, cluster.GetCellByID(tablet.Spec.Cell))
-
-		shard.Spec.Tablets[tablet.GetName()] = tablet.Spec.DeepCopy()
+	for _, tablet := range shard.Tablets() {
+		tablet.SetParentCluster(cluster)
+		tablet.SetParentCell(cluster.GetCellByID(tablet.Spec.CellID))
+		tablet.SetParentKeyspace(shard.Keyspace())
+		tablet.SetParentShard(shard)
 	}
 
 	return nil

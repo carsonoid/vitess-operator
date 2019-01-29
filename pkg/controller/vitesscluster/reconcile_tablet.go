@@ -21,10 +21,10 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileTablet(tablet *vitessv1alpha2.VitessTablet) (reconcile.Result, error) {
-	log.Info("Reconciling Tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+	log.Info("Reconciling Tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
 
 	if r, err := r.ReconcileTabletStatefulSet(tablet); err != nil {
-		log.Error(err, "Failed to reconcile tablet statefulset", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+		log.Error(err, "Failed to reconcile tablet statefulset", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
 		return r, err
 	} else if r.Requeue {
 		return r, err
@@ -34,7 +34,7 @@ func (r *ReconcileVitessCluster) ReconcileTablet(tablet *vitessv1alpha2.VitessTa
 	// TODO replace this with direct election via the operator
 	if tablet.Spec.Type == vitessv1alpha2.TabletTypeReplica {
 		if r, err := r.ReconcileReplicaTabletInitJob(tablet); err != nil {
-			log.Error(err, "Failed to reconcile replica tablet master init job", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+			log.Error(err, "Failed to reconcile replica tablet master init job", "Namespace", tablet.GetName(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
 			return r, err
 		} else if r.Requeue {
 			return r, err
@@ -52,9 +52,9 @@ func (r *ReconcileVitessCluster) ReconcileTabletStatefulSet(tablet *vitessv1alph
 	}
 
 	foundStatefulSet := &appsv1.StatefulSet{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: statefulSet.GetName(), Namespace: tablet.GetCluster().GetNamespace()}, foundStatefulSet)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: statefulSet.GetName(), Namespace: tablet.Cluster().GetNamespace()}, foundStatefulSet)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(tablet.GetCluster(), statefulSet, r.scheme)
+		controllerutil.SetControllerReference(tablet.Cluster(), statefulSet, r.scheme)
 
 		err = r.client.Create(context.TODO(), statefulSet)
 		if err != nil {
@@ -71,7 +71,7 @@ func (r *ReconcileVitessCluster) ReconcileTabletStatefulSet(tablet *vitessv1alph
 		// trigger statefulset upgrades.
 		// TODO more exact diff detection
 		if !reflect.DeepEqual(foundStatefulSet, statefulSet.Spec) {
-			log.Info("Updating statefulSet for tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.GetCluster().GetName(), "Tablet.Name", tablet.GetName())
+			log.Info("Updating statefulSet for tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
 			err = r.client.Update(context.TODO(), statefulSet)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -86,33 +86,33 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 	selfLabels := map[string]string{
 		"tabletname": tablet.GetName(),
 		"app":        "vitess",
-		"cluster":    tablet.GetCluster().GetName(),
-		"cell":       tablet.GetCell().GetName(),
-		"keyspace":   tablet.GetKeyspace().GetName(),
-		"shard":      tablet.GetShard().GetName(),
+		"cluster":    tablet.Cluster().GetName(),
+		"cell":       tablet.Cell().GetName(),
+		"keyspace":   tablet.Keyspace().GetName(),
+		"shard":      tablet.Shard().GetName(),
 		"component":  "vttablet",
 		"type":       string(tablet.Spec.Type),
 	}
 
 	vtgateLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   tablet.GetCluster().GetName(),
-		"cell":      tablet.GetCell().GetName(),
+		"cluster":   tablet.Cluster().GetName(),
+		"cell":      tablet.Cell().GetName(),
 		"component": "vtgate",
 	}
 
 	sameClusterTabletLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   tablet.GetCluster().GetName(),
+		"cluster":   tablet.Cluster().GetName(),
 		"component": "vttablet",
 	}
 
 	sameShardTabletLabels := map[string]string{
 		"app":       "vitess",
-		"cluster":   tablet.GetCluster().GetName(),
-		"cell":      tablet.GetCell().GetName(),
-		"keyspace":  tablet.GetKeyspace().GetName(),
-		"shard":     tablet.GetShard().GetName(),
+		"cluster":   tablet.Cluster().GetName(),
+		"cell":      tablet.Cell().GetName(),
+		"keyspace":  tablet.Keyspace().GetName(),
+		"shard":     tablet.Shard().GetName(),
 		"component": "vttablet",
 	}
 
@@ -185,7 +185,7 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      tablet.GetScopedName(string(tablet.Spec.Type)),
-			Namespace: tablet.GetNamespace(),
+			Namespace: tablet.Cluster().GetNamespace(),
 			Labels:    selfLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -530,7 +530,7 @@ func (r *ReconcileVitessCluster) ReconcileReplicaTabletInitJob(tablet *vitessv1a
 	found := &batchv1.Job{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}, found)
 	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(tablet.GetCluster(), job, r.scheme)
+		controllerutil.SetControllerReference(tablet.Cluster(), job, r.scheme)
 		err = r.client.Create(context.TODO(), job)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -555,9 +555,9 @@ func GetReplicaTabletInitMasterJob(tablet *vitessv1alpha2.VitessTablet) (*batchv
 
 	jobLabels := map[string]string{
 		"app":                "vitess",
-		"cluster":            tablet.GetCluster().GetName(),
-		"keyspace":           tablet.GetKeyspace().GetName(),
-		"shard":              tablet.GetShard().GetName(),
+		"cluster":            tablet.Cluster().GetName(),
+		"keyspace":           tablet.Keyspace().GetName(),
+		"shard":              tablet.Shard().GetName(),
 		"component":          "vttablet-replica-elector",
 		"initShardMasterJob": "true",
 		"job-name":           jobName,
@@ -566,7 +566,7 @@ func GetReplicaTabletInitMasterJob(tablet *vitessv1alpha2.VitessTablet) (*batchv
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Namespace: tablet.GetCluster().GetNamespace(),
+			Namespace: tablet.Cluster().GetNamespace(),
 			Labels:    jobLabels,
 		},
 		Spec: batchv1.JobSpec{

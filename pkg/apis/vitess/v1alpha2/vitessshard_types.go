@@ -13,7 +13,7 @@ type VitessShardSpec struct {
 
 	KeyRange KeyRange `json:"keyRange,omitempty"`
 
-	Tablets map[string]*VitessTabletSpec `json:"tablets"`
+	Tablets []*VitessTablet `json:"tablets"`
 
 	TabletSelector []ResourceSelector `json:"tabletSelector,omitempty"`
 
@@ -23,7 +23,7 @@ type VitessShardSpec struct {
 }
 
 type VitessShardParents struct {
-	VitessKeyspaceParents
+	Cluster  *VitessCluster
 	Keyspace *VitessKeyspace
 }
 
@@ -39,13 +39,6 @@ type VitessShardOptions struct {
 	CellSelector []ResourceSelector `json:"cellSelector,omitempty"`
 }
 
-// VitessShardStatus defines the observed state of VitessShard
-type VitessShardStatus struct {
-	State string `json:"state,omitempty"`
-
-	Tablets map[string]*VitessTabletStatus `json:"tablets,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VitessShard is the Schema for the vitessshards API
@@ -54,8 +47,7 @@ type VitessShard struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VitessShardSpec   `json:"spec,omitempty"`
-	Status VitessShardStatus `json:"status,omitempty"`
+	Spec VitessShardSpec `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -11,7 +11,7 @@ import (
 type VitessKeyspaceSpec struct {
 	Defaults *VitessShardOptions `json:"defaults"`
 
-	Shards map[string]*VitessShardSpec `json:"shards"`
+	Shards []*VitessShard `json:"shards"`
 
 	ShardSelector []ResourceSelector `json:"shardSelector,omitempty"`
 
@@ -28,13 +28,6 @@ type VitessBatchOptions struct {
 	Count int64 `json:"count"`
 }
 
-// VitessKeyspaceStatus defines the observed state of VitessKeyspace
-type VitessKeyspaceStatus struct {
-	State string `json:"state,omitempty"`
-
-	Shards map[string]*VitessShardStatus `json:"shards,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VitessKeyspace is the Schema for the vitesskeyspaces API
@@ -43,8 +36,7 @@ type VitessKeyspace struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VitessKeyspaceSpec   `json:"spec,omitempty"`
-	Status VitessKeyspaceStatus `json:"status,omitempty"`
+	Spec VitessKeyspaceSpec `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

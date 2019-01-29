@@ -7,10 +7,10 @@ import (
 )
 
 func (r *ReconcileVitessCluster) ReconcileKeyspace(keyspace *vitessv1alpha2.VitessKeyspace) (reconcile.Result, error) {
-	log.Info("Reconciling Keyspace", "Namespace", keyspace.GetNamespace(), "VitessCluster.Name", keyspace.GetCluster().GetName(), "Keyspace.Name", keyspace.GetName())
+	log.Info("Reconciling Keyspace", "Namespace", keyspace.GetNamespace(), "VitessCluster.Name", keyspace.Cluster().GetName(), "Keyspace.Name", keyspace.GetName())
 
 	// Reconcile all shards
-	for _, shard := range keyspace.GetEmbeddedShards() {
+	for _, shard := range keyspace.Shards() {
 		if result, err := r.ReconcileShard(shard); err != nil {
 			return result, err
 		}

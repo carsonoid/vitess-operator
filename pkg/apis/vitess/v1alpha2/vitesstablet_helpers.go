@@ -11,72 +11,49 @@ func (tablet *VitessTablet) GetTabletContainers() *TabletContainers {
 	return tablet.Spec.Containers
 }
 
-// func (p *VitessTabletParentSet) IsValid() (bool, error) {
-// 	valid := true
-// 	problems := []string{}
+func (tablet *VitessTablet) SetParentCluster(cluster *VitessCluster) {
+	tablet.Spec.parent.Cluster = cluster
+}
 
-// 	if p.Cluster == nil {
-// 		problems = append(problems, "Parent Cluster not set")
-// 		valid = false
-// 	}
-// 	if p.Cell == nil {
-// 		problems = append(problems, "Parent Cell not set")
-// 		valid = false
-// 	}
-// 	if p.Keyspace == nil {
-// 		problems = append(problems, "Parent Keyspace not set")
-// 		valid = false
-// 	}
-// 	if p.Shard == nil {
-// 		problems = append(problems, "Parent Shard not set")
-// 		valid = false
-// 	}
-
-// 	return valid, fmt.Errorf(strings.Join(problems, ", "))
-// }
-
-func (tablet *VitessTablet) SetParents(shard *VitessShard, cell *VitessCell) {
-	tablet.Spec.parent.Shard = shard
-	tablet.Spec.parent.VitessShardParents = shard.Spec.parent
-
+func (tablet *VitessTablet) SetParentCell(cell *VitessCell) {
 	tablet.Spec.parent.Cell = cell
 }
 
-func (tablet *VitessTablet) GetLockserver() *VitessLockserver {
-	if tablet.GetCell() != nil && tablet.GetCell().Spec.Lockserver != nil {
-		return tablet.GetCell().GetLockserver()
-	}
-
-	if tablet.GetCluster() != nil && tablet.GetCluster().Spec.Lockserver != nil {
-		return tablet.GetCluster().GetLockserver()
-	}
-
-	return nil
+func (tablet *VitessTablet) SetParentKeyspace(keyspace *VitessKeyspace) {
+	tablet.Spec.parent.Keyspace = keyspace
 }
 
-func (tablet *VitessTablet) GetCluster() *VitessCluster {
+func (tablet *VitessTablet) SetParentShard(shard *VitessShard) {
+	tablet.Spec.parent.Shard = shard
+}
+
+func (tablet *VitessTablet) Lockserver() *VitessLockserver {
+	return tablet.Cell().Lockserver()
+}
+
+func (tablet *VitessTablet) Cluster() *VitessCluster {
 	return tablet.Spec.parent.Cluster
 }
 
-func (tablet *VitessTablet) GetCell() *VitessCell {
+func (tablet *VitessTablet) Cell() *VitessCell {
 	return tablet.Spec.parent.Cell
 }
 
-func (tablet *VitessTablet) GetKeyspace() *VitessKeyspace {
+func (tablet *VitessTablet) Keyspace() *VitessKeyspace {
 	return tablet.Spec.parent.Keyspace
 }
 
-func (tablet *VitessTablet) GetShard() *VitessShard {
+func (tablet *VitessTablet) Shard() *VitessShard {
 	return tablet.Spec.parent.Shard
 }
 
 func (tablet *VitessTablet) GetScopedName(extra ...string) string {
 	return strings.Join(append(
 		[]string{
-			tablet.GetCluster().GetName(),
-			tablet.GetCell().GetName(),
-			tablet.GetKeyspace().GetName(),
-			tablet.GetShard().GetName(),
+			tablet.Cluster().GetName(),
+			tablet.Cell().GetName(),
+			tablet.Keyspace().GetName(),
+			tablet.Shard().GetName(),
 		},
 		extra...), "-")
 }
@@ -86,8 +63,8 @@ func (tablet *VitessTablet) GetReplicas() *int32 {
 		return tablet.Spec.Replicas
 	}
 
-	if tablet.GetShard().Spec.Defaults != nil && tablet.GetShard().Spec.Defaults.Replicas != nil {
-		return tablet.GetShard().Spec.Defaults.Replicas
+	if tablet.Shard().Spec.Defaults != nil && tablet.Shard().Spec.Defaults.Replicas != nil {
+		return tablet.Shard().Spec.Defaults.Replicas
 	}
 
 	var def int32
@@ -118,8 +95,8 @@ func (tablet *VitessTablet) GetVTTabletContainer() *VTTabletContainer {
 	// Inheritance order, with most specific first
 	providers := []ConfigProvider{
 		tablet,
-		tablet.GetShard(),
-		tablet.GetKeyspace(),
+		tablet.Shard(),
+		tablet.Keyspace(),
 	}
 
 	for _, p := range providers {
