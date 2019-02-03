@@ -4,31 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	// appsv1 "k8s.io/api/apps/v1"
-	// batchv1 "k8s.io/api/batch/v1"
-	// corev1 "k8s.io/api/core/v1"
-	// "k8s.io/apimachinery/pkg/api/errors"
-	// "k8s.io/apimachinery/pkg/api/resource"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// "k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	// "k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	// "sigs.k8s.io/controller-runtime/pkg/controller"
-	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	// "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	// "sigs.k8s.io/controller-runtime/pkg/handler"
-	// "sigs.k8s.io/controller-runtime/pkg/manager"
-	// "sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	// "sigs.k8s.io/controller-runtime/pkg/source"
 
 	vitessv1alpha2 "vitess.io/vitess-operator/pkg/apis/vitess/v1alpha2"
-	// lockserver_controller "vitess.io/vitess-operator/pkg/controller/vitesslockserver"
-	// "vitess.io/vitess-operator/pkg/util/scripts"
 )
 
 var log = logf.Log.WithName("normalizer")
@@ -69,7 +53,7 @@ func (n *Normalizer) NormalizeClusterLockserver(cluster *vitessv1alpha2.VitessCl
 		ls := &vitessv1alpha2.VitessLockserver{}
 		err := n.client.Get(context.TODO(), types.NamespacedName{Name: cluster.Spec.LockserverRef.Name, Namespace: cluster.GetNamespace()}, ls)
 		if err != nil {
-			return ClientError
+			return NewClientError(err)
 		}
 
 		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
@@ -95,6 +79,25 @@ func (n *Normalizer) NormalizeClusterCells(cluster *vitessv1alpha2.VitessCluster
 
 	for _, cell := range cluster.Cells() {
 		cell.SetParentCluster(cluster)
+
+		n.NormalizeCellLockserver(cell)
+	}
+
+	return nil
+}
+
+func (n *Normalizer) NormalizeCellLockserver(cell *vitessv1alpha2.VitessCell) error {
+	// Populate the embedded lockserver spec from Ref if given
+	if cell.Spec.LockserverRef != nil {
+		ls := &vitessv1alpha2.VitessLockserver{}
+		err := n.client.Get(context.TODO(), types.NamespacedName{Name: cell.Spec.LockserverRef.Name, Namespace: cell.Cluster().GetNamespace()}, ls)
+		if err != nil {
+			return NewClientError(err)
+		}
+
+		// Since Lockserver and Lockserver Ref are mutually-exclusive, it should be safe
+		// to simply populate the Lockserver struct member with a pointer to the fetched lockserver
+		cell.Spec.Lockserver = ls
 	}
 
 	return nil

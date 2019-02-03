@@ -1,0 +1,92 @@
+## Sample VitessCluster all-in-one resource
+apiVersion: vitess.io/v1alpha2
+kind: VitessCluster
+metadata:
+  name: simple2
+  labels:
+    app: vitess
+spec:
+  lockserver:
+    metadata:
+      name: global
+    spec:
+      etcd2:
+        address: etcd-global-client:2379
+        path: /vitess/global
+  cells:
+  - metadata:
+      name: zone1
+    spec:
+      lockserver:
+        metadata:
+          name: zone1
+        spec:
+          type: etcd2
+          etcd2:
+            address: etcd-zone1-client:2379
+            path: /vitess/zone1
+      defaults:
+        replicas: 1
+        image: vitess/vttablet:helm-1.0.4
+  keyspaces:
+  - metadata:
+      name: unsharded-dbname
+    spec:
+      shards:
+      - metadata:
+          name: "0"
+        spec:
+          defaults:
+            replicas: 2
+            containers:
+              mysql:
+                image: percona:5.7.23
+              vttablet:
+                image: vitess/vttablet:helm-1.0.4
+          tablets:
+          - metadata:
+              name: zone1
+            spec:
+              cellID: zone1
+              tabletID: 101
+              type: replica
+  - metadata:
+      name: sharded-dbname
+    spec:
+      shards:
+      - metadata:
+          name: "x-80"
+        spec:
+          keyRange: { To: "80" }
+          defaults:
+            replicas: 2
+            containers:
+              mysql:
+                image: percona:5.7.23
+              vttablet:
+                image: vitess/vttablet:helm-1.0.4
+          tablets:
+          - metadata:
+              name: zone1
+            spec:
+              cellID: zone1
+              tabletID: 102
+              type: replica
+      - metadata:
+          name: "80-x"
+        spec:
+          keyRange: { From: "80" }
+          defaults:
+            replicas: 2
+            containers:
+              mysql:
+                image: percona:5.7.23
+              vttablet:
+                image: vitess/vttablet:helm-1.0.4
+          tablets:
+          - metadata:
+              name: zone1
+            spec:
+              cellID: zone1
+              tabletID: 103
+              type: replica

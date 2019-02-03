@@ -10,7 +10,9 @@ import (
 
 // VitessCellSpec defines the desired state of VitessCell
 type VitessCellSpec struct {
-	Lockserver *VitessLockserverSpec `json:"lockserver"`
+	Lockserver *VitessLockserver `json:"lockserver"`
+
+	LockserverRef *corev1.LocalObjectReference `json:"lockserverRef,omitempty"`
 
 	Defaults *VitessCellDefaults `json:"defaults"`
 

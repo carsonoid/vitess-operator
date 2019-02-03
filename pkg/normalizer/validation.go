@@ -6,11 +6,17 @@ import (
 
 func (n *Normalizer) ValidateCluster(cluster *vitessv1alpha2.VitessCluster) error {
 	if cluster.Lockserver() == nil {
-		return ValidationErrorNoLockserver
+		return ValidationErrorNoLockserverForCluster
 	}
 
 	if len(cluster.Cells()) == 0 {
 		return ValidationErrorNoCells
+	}
+
+	for _, cell := range cluster.Cells() {
+		if cell.Lockserver() == nil {
+			return ValidationErrorNoLockserverForCell
+		}
 	}
 
 	if len(cluster.Keyspaces()) == 0 {
@@ -23,6 +29,12 @@ func (n *Normalizer) ValidateCluster(cluster *vitessv1alpha2.VitessCluster) erro
 
 	if len(cluster.Tablets()) == 0 {
 		return ValidationErrorNoTablets
+	}
+
+	for _, tablet := range cluster.Tablets() {
+		if tablet.Cell() == nil {
+			return ValidationErrorNoCellForTablet
+		}
 	}
 
 	return nil

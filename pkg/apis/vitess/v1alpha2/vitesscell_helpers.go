@@ -2,8 +2,6 @@ package v1alpha2
 
 import (
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (cell *VitessCell) SetParentCluster(cluster *VitessCluster) {
@@ -15,13 +13,7 @@ func (cell *VitessCell) Cluster() *VitessCluster {
 }
 
 func (cell *VitessCell) Lockserver() *VitessLockserver {
-	if cell.Spec.Lockserver == nil {
-		return nil
-	}
-	return &VitessLockserver{
-		ObjectMeta: metav1.ObjectMeta{Name: cell.GetName(), Namespace: cell.GetNamespace()},
-		Spec:       *cell.Spec.Lockserver,
-	}
+	return cell.Spec.Lockserver
 }
 
 func (cell *VitessCell) GetScopedName(extra ...string) string {

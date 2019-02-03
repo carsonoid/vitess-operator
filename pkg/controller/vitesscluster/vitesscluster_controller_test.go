@@ -34,7 +34,7 @@ func TestLockserverLockserverRefMutuallyExclusive(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
-			Lockserver: &vitessv1alpha2.VitessLockserverSpec{},
+			Lockserver: &vitessv1alpha2.VitessLockserver{},
 			LockserverRef: &corev1.LocalObjectReference{
 				Name: "exists",
 			},
@@ -92,34 +92,57 @@ func TestTabletTemplates(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
-			Lockserver: &vitessv1alpha2.VitessLockserverSpec{
-				Type: vitessv1alpha2.LockserverTypeEtcd2,
-				Etcd2: &vitessv1alpha2.Etcd2Lockserver{
-					Address: etcd2Address,
-					Path:    etcd2Path,
+			Lockserver: &vitessv1alpha2.VitessLockserver{
+				Spec: vitessv1alpha2.VitessLockserverSpec{
+					Type: vitessv1alpha2.LockserverTypeEtcd2,
+					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
+						Address: etcd2Address,
+						Path:    etcd2Path,
+					},
 				},
 			},
-			Cells: map[string]*vitessv1alpha2.VitessCellSpec{
-				"default": {},
-			},
-			Keyspaces: map[string]*vitessv1alpha2.VitessKeyspaceSpec{
-				"default": {
-					Shards: map[string]*vitessv1alpha2.VitessShardSpec{
-						"default": {
-							Defaults: &vitessv1alpha2.VitessShardOptions{
-								Containers: &vitessv1alpha2.TabletContainers{
-									VTTablet: &vitessv1alpha2.VTTabletContainer{
-										Image: "test",
-									},
-									MySQL: &vitessv1alpha2.MySQLContainer{
-										Image: "test",
-									},
+			Cells: []*vitessv1alpha2.VitessCell{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: vitessv1alpha2.VitessCellSpec{
+						Lockserver: &vitessv1alpha2.VitessLockserver{
+							Spec: vitessv1alpha2.VitessLockserverSpec{
+								Type: vitessv1alpha2.LockserverTypeEtcd2,
+								Etcd2: &vitessv1alpha2.Etcd2Lockserver{
+									Address: etcd2Address,
+									Path:    etcd2Path,
 								},
 							},
-							Tablets: map[string]*vitessv1alpha2.VitessTabletSpec{
-								"default": {
-									TabletID: 101,
-									Cell:     "default",
+						},
+					},
+				},
+			},
+			Keyspaces: []*vitessv1alpha2.VitessKeyspace{
+				{
+					Spec: vitessv1alpha2.VitessKeyspaceSpec{
+						Shards: []*vitessv1alpha2.VitessShard{
+							{
+								Spec: vitessv1alpha2.VitessShardSpec{
+									Defaults: &vitessv1alpha2.VitessShardOptions{
+										Containers: &vitessv1alpha2.TabletContainers{
+											VTTablet: &vitessv1alpha2.VTTabletContainer{
+												Image: "test",
+											},
+											MySQL: &vitessv1alpha2.MySQLContainer{
+												Image: "test",
+											},
+										},
+									},
+									Tablets: []*vitessv1alpha2.VitessTablet{
+										{
+											Spec: vitessv1alpha2.VitessTabletSpec{
+												TabletID: 101,
+												CellID:   "default",
+											},
+										},
+									},
 								},
 							},
 						},
@@ -150,10 +173,16 @@ func TestTabletTemplates(t *testing.T) {
 	// Create a fake client to mock API calls.
 	cl := fake.NewFakeClient(objs...)
 
+	norm := normalizer.New(cl)
+
 	// Call the normalize function for the cluster
-	err := normalizer.New(cl).NormalizeCluster(cluster)
-	if err != nil {
+	if err := norm.NormalizeCluster(cluster); err != nil {
 		t.Fatalf("Error normalizing cluster: %s", err)
+	}
+
+	// Call the validate function for the cluster
+	if err := norm.ValidateCluster(cluster); err != nil {
+		t.Fatalf("Error validating cluster: %s", err)
 	}
 
 	for _, tablet := range cluster.Tablets() {

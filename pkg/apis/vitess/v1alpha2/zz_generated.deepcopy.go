@@ -404,7 +404,7 @@ func (in *VitessCellSpec) DeepCopyInto(out *VitessCellSpec) {
 	*out = *in
 	if in.Lockserver != nil {
 		in, out := &in.Lockserver, &out.Lockserver
-		*out = new(VitessLockserverSpec)
+		*out = new(VitessLockserver)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Defaults != nil {

@@ -106,12 +106,12 @@ func TestValidation(t *testing.T) {
 		{
 			&vitessv1alpha2.VitessLockserver{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "lockserver",
+					Name:      "cluster-lockserver",
 					Namespace: testNamespace,
 					Labels:    testLabels,
 				},
 			},
-			ValidationErrorNoLockserver,
+			ValidationErrorNoLockserverForCluster,
 		},
 		{
 			&vitessv1alpha2.VitessCell{
@@ -120,8 +120,23 @@ func TestValidation(t *testing.T) {
 					Namespace: testNamespace,
 					Labels:    testLabels,
 				},
+				Spec: vitessv1alpha2.VitessCellSpec{
+					LockserverRef: &corev1.LocalObjectReference{
+						Name: "cell-lockserver",
+					},
+				},
 			},
 			ValidationErrorNoCells,
+		},
+		{
+			&vitessv1alpha2.VitessLockserver{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cell-lockserver",
+					Namespace: testNamespace,
+					Labels:    testLabels,
+				},
+			},
+			ValidationErrorNoLockserverForCell,
 		},
 		{
 			&vitessv1alpha2.VitessKeyspace{
@@ -199,10 +214,10 @@ func TestValidation(t *testing.T) {
 			},
 		}
 
-		// handle special case for lockserverRef
-		if test.missingErr != ValidationErrorNoLockserver {
+		// handle special case for cluster lockserverRef
+		if test.missingErr != ValidationErrorNoLockserverForCluster {
 			cluster.Spec.LockserverRef = &corev1.LocalObjectReference{
-				Name: "lockserver",
+				Name: "cluster-lockserver",
 			}
 		}
 
@@ -229,7 +244,7 @@ func TestValidation(t *testing.T) {
 			},
 			Spec: vitessv1alpha2.VitessClusterSpec{
 				LockserverRef: &corev1.LocalObjectReference{
-					Name: "lockserver",
+					Name: "cluster-lockserver",
 				},
 				CellSelector:     testSel,
 				KeyspaceSelector: testSel,
@@ -282,6 +297,11 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 				Name:      "cell",
 				Namespace: testNamespace,
 				Labels:    testLabels,
+			},
+			Spec: vitessv1alpha2.VitessCellSpec{
+				LockserverRef: &corev1.LocalObjectReference{
+					Name: "lockserver",
+				},
 			},
 		},
 		&vitessv1alpha2.VitessKeyspace{
