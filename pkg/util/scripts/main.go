@@ -69,6 +69,11 @@ func (csg *ContainerScriptGenerator) Generate() error {
 		if err != nil {
 			return err
 		}
+	case "init-mysql-creds":
+		csg.Start, err = csg.getTemplatedScript("init-mysql-creds", InitMySQLCreds)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("Unsupported container type: %s", csg.ContainerType)
 	}

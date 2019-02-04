@@ -17,6 +17,15 @@ const (
   -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}"
   -topo_global_root={{ .Lockserver.Spec.Etcd2.Path }}
   {{ end }}
+  {{ if .Cell.Spec.MySQLProtocol }}
+  -mysql_server_port=3306
+  {{ if .Cell.Spec.MySQLProtocol.PasswordSecretRef }}
+  -mysql_auth_server_impl="static"
+  -mysql_auth_server_static_file="/mysqlcreds/creds.json"
+  {{ else if eq .Cell.Spec.MySQLProtocol.AuthType "none" }}
+  -mysql_auth_server_impl="none"
+  {{ end }}
+  {{ end }}
 END_OF_COMMAND
 )
 `

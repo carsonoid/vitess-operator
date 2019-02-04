@@ -16,6 +16,8 @@ type VitessCellSpec struct {
 
 	Defaults *VitessCellDefaults `json:"defaults"`
 
+	MySQLProtocol *VitessCellMySQLProtocol `json:"mysqlProtocol"`
+
 	VTGate []VTComponent `json:"vtgate"`
 
 	VTWorker []VTComponent `json:"vtworker"`
@@ -38,6 +40,22 @@ type VitessCellDefaults struct {
 
 	Image string `json:"image"`
 }
+
+type VitessCellMySQLProtocol struct {
+	AuthType VitessMySQLAuthType `json:"authType,omitempty"`
+
+	Username string `json:"image,omitempty"`
+
+	// Password string `json:"password"`
+
+	PasswordSecretRef *corev1.SecretKeySelector `json:"passwordSecretRef,omitempty"`
+}
+
+type VitessMySQLAuthType string
+
+const (
+	VitessMySQLAuthTypeNone VitessMySQLAuthType = "none"
+)
 
 type VTGate struct {
 	// Inline common component struct members

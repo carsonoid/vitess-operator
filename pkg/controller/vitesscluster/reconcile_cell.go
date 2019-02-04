@@ -219,8 +219,8 @@ func (r *ReconcileVitessCluster) ReconcileCellVTGate(cell *vitessv1alpha2.Vitess
 func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment, *corev1.Service, error) {
 	name := cell.GetScopedName("vtgate")
 
-	scripts := scripts.NewContainerScriptGenerator("vtgate", cell)
-	if err := scripts.Generate(); err != nil {
+	scriptGen := scripts.NewContainerScriptGenerator("vtgate", cell)
+	if err := scriptGen.Generate(); err != nil {
 		return nil, nil, err
 	}
 
@@ -296,7 +296,7 @@ func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 							},
 							Args: []string{
 								"-c",
-								scripts.Start,
+								scriptGen.Start,
 							},
 							LivenessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
@@ -371,6 +371,49 @@ func GetCellVTGateResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 				},
 			},
 		},
+	}
+
+	if cell.Spec.MySQLProtocol != nil {
+		// Add Service Port
+		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
+			Name: "mysql",
+			Port: 3306,
+		})
+
+		// Setup credential init container
+		if cell.Spec.MySQLProtocol.PasswordSecretRef != nil {
+			scriptGen := scripts.NewContainerScriptGenerator("init-mysql-creds", cell)
+			if err := scriptGen.Generate(); err != nil {
+				return nil, nil, err
+			}
+
+			// Add deployment initContainer to bootstrap creds
+			deployment.Spec.Template.Spec.InitContainers = append(deployment.Spec.Template.Spec.InitContainers, corev1.Container{
+				Name:  "init-mysql-creds",
+				Image: "vitess/vtgate:helm-1.0.3", // TODO use CRD w/default
+				Env: []corev1.EnvVar{
+					{
+						Name: "MYSQL_PASSWORD",
+						ValueFrom: &corev1.EnvVarSource{
+							SecretKeyRef: cell.Spec.MySQLProtocol.PasswordSecretRef,
+						},
+					},
+				},
+				Command: []string{
+					"bash",
+				},
+				Args: []string{
+					"-c",
+					scriptGen.Start,
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						MountPath: "/mysqlcreds",
+						Name:      "creds",
+					},
+				},
+			})
+		}
 	}
 
 	return deployment, service, nil
