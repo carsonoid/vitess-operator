@@ -79,79 +79,7 @@ func (r *ReconcileVitessCluster) ReconcileTabletResources(tablet *vitessv1alpha2
 		}
 	}
 
-	service, serviceErr := getServiceForTablet(tablet)
-	if serviceErr != nil {
-		log.Error(serviceErr, "failed to generate service for VitessTablet", "VitessTablet.Namespace", tablet.GetNamespace(), "VitessTablet.Name", tablet.GetNamespace())
-		return reconcile.Result{}, serviceErr
-	}
-	foundService := &corev1.Service{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: service.GetName(), Namespace: service.GetNamespace()}, foundService)
-	if err != nil && errors.IsNotFound(err) {
-		controllerutil.SetControllerReference(tablet.Cluster(), service, r.scheme)
-		err = r.client.Create(context.TODO(), service)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else if err != nil {
-		log.Error(err, "failed to get Service")
-		return reconcile.Result{}, err
-	}
-
 	return reconcile.Result{}, nil
-}
-
-// getServiceForTablet takes a vitess tablet and returns a headless
-// service that will point at that tablet set and an error
-func getServiceForTablet(tablet *vitessv1alpha2.VitessTablet) (*corev1.Service, error) {
-	labels := map[string]string{
-		"tabletname": tablet.GetName(),
-		"app":        "vitess",
-		"cluster":    tablet.Cluster().GetName(),
-		"cell":       tablet.Cell().GetName(),
-		"keyspace":   tablet.Keyspace().GetName(),
-		"shard":      tablet.Shard().GetName(),
-		"component":  "vttablet",
-		"type":       string(tablet.Spec.Type),
-	}
-
-	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      tablet.Cluster().GetScopedName("vttablet"),
-			Namespace: tablet.Cluster().GetNamespace(),
-			Labels:    labels,
-			Annotations: map[string]string{
-				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: corev1.ClusterIPNone,
-			Selector:  labels,
-			Type:      corev1.ServiceTypeClusterIP,
-			Ports: []corev1.ServicePort{
-				{
-					Name: "web",
-					Port: 15002,
-				},
-				{
-					Name: "grpc",
-					Port: 16002,
-				},
-				// TODO: Configure ports below only if if ppm is enabled
-				{
-					Name: "query-data",
-					Port: 42001,
-				},
-				{
-					Name: "mysql-metrics",
-					Port: 42002,
-				},
-			},
-		},
-	}
-
-	// The error return is always nil right now, but it still returns one just
-	// in case there are error states in the future
-	return service, nil
 }
 
 func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.StatefulSet, error) {
