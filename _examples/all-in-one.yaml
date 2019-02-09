@@ -12,7 +12,7 @@ spec:
     spec:
       etcd2:
         address: etcd-global-client:2379
-        path: /vitess/global
+        pathPrefix: /vitess/global
   cells:
   - metadata:
       name: zone1
@@ -24,7 +24,7 @@ spec:
           type: etcd2
           etcd2:
             address: etcd-zone1-client:2379
-            path: /vitess/zone1
+            pathPrefix: /vitess/zone1
       defaults:
         replicas: 1
         image: vitess/vttablet:helm-1.0.4
