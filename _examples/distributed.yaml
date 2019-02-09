@@ -70,7 +70,7 @@ spec:
 apiVersion: vitess.io/v1alpha2
 kind: VitessCluster
 metadata:
-  name: complex
+  name: dist
   labels:
     app: vitess
 spec:

@@ -2,7 +2,7 @@
 apiVersion: vitess.io/v1alpha2
 kind: VitessCluster
 metadata:
-  name: simple
+  name: aio
   labels:
     app: vitess
 spec:
