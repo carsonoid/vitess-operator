@@ -8,11 +8,13 @@ A Kubernetes operator for Vitess clusters.
 - [x] Create a Job to elect the initial master in each VitessShard
 - [X] Fix parenting and normalization
 - [x] Create vtctld Deployment and Service
+- [X] Create vttablet service
+- [X] Create vtgate Deployment and Service
 - [ ] Create PodDisruptionBudgets
-- [ ] Create ConfigMap
-- [ ] Create vttablet service
-- [ ] Create vtgate Deployment and Service
 - [ ] Reconcile all the things!
+- [ ] Label pods when they become shard masters
+- [ ] Add the ability to automatically merge/split a shard
+- [ ] Add the ability to automatically export/import resources from embedded objects to separate objects and back
 - [ ] Move shard master election into the operator
 
 ## Dev
