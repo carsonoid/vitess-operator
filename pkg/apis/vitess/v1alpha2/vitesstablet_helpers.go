@@ -85,6 +85,9 @@ func (tablet *VitessTablet) GetMySQLContainer() *MySQLContainer {
 			if containers.MySQL.DBFlavor == "" && containers.DBFlavor != "" {
 				containers.MySQL.DBFlavor = containers.DBFlavor
 			}
+			if containers.MySQL.DBFlavor == "" {
+				containers.MySQL.DBFlavor = "mysql56"
+			}
 			return containers.MySQL
 		}
 	}
@@ -104,6 +107,9 @@ func (tablet *VitessTablet) GetVTTabletContainer() *VTTabletContainer {
 			// TODO get defaults from full range of providers
 			if containers.VTTablet.DBFlavor == "" && containers.DBFlavor != "" {
 				containers.VTTablet.DBFlavor = containers.DBFlavor
+			}
+			if containers.VTTablet.DBFlavor == "" {
+				containers.VTTablet.DBFlavor = "mysql56"
 			}
 			return containers.VTTablet
 		}
