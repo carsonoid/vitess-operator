@@ -23,5 +23,7 @@ A Kubernetes operator for Vitess clusters.
     - `kubectl create -f deploy/crds`
 - Run the operator locally
     - `operator-sdk up local`
-- Create a test vitesscluster
-    - `kubectl create -f _examples/vitess_v1alpha2_vitesscluster_simple.yaml`
+- Create the etcd servers
+    - `kubectl create -f _examples/etcd-clusters.yaml`
+- Create a sample cluster with everything in one resource
+    - `kubectl create -f _examples/all-in-one.yaml`
