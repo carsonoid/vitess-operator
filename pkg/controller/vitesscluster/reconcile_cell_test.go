@@ -14,6 +14,25 @@ import (
 
 func TestGetCellVTGateResources(t *testing.T) {
 
+	// Define a minimal cluster
+	cluster := &vitessv1alpha2.VitessCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testcluster",
+			Namespace: "vitess",
+		},
+		Spec: vitessv1alpha2.VitessClusterSpec{
+			Lockserver: &vitessv1alpha2.VitessLockserver{
+				Spec: vitessv1alpha2.VitessLockserverSpec{
+					Type: vitessv1alpha2.LockserverTypeEtcd2,
+					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
+						Address: "global-lockserver:8080",
+						Path:    "/global",
+					},
+				},
+			},
+		},
+	}
+
 	// Define a basic cell
 	cell := &vitessv1alpha2.VitessCell{
 		ObjectMeta: metav1.ObjectMeta{
@@ -30,7 +49,7 @@ func TestGetCellVTGateResources(t *testing.T) {
 		},
 	}
 
-	cell.SetParentCluster(&vitessv1alpha2.VitessCluster{})
+	cell.SetParentCluster(cluster)
 
 	// Get the resources
 	deployment, service, err := GetCellVTGateResources(cell)

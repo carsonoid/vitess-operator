@@ -12,10 +12,10 @@ const (
   -tablet_types_to_wait="MASTER,REPLICA"
   -gateway_implementation="discoverygateway"
   -mysql_server_version="5.5.10-Vitess"
-  {{ if eq .Lockserver.Spec.Type "etcd2" }}
+  {{ if eq .GlobalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}"
-  -topo_global_root={{ .Lockserver.Spec.Etcd2.Path }}
+  -topo_global_server_address="{{ .GlobalLockserver.Spec.Etcd2.Address }}"
+  -topo_global_root={{ .GlobalLockserver.Spec.Etcd2.Path }}
   {{ end }}
   {{ if .Cell.Spec.MySQLProtocol }}
   -mysql_server_port=3306

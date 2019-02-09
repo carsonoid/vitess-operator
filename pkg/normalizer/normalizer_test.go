@@ -276,7 +276,7 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 		},
 		Spec: vitessv1alpha2.VitessClusterSpec{
 			LockserverRef: &corev1.LocalObjectReference{
-				Name: "lockserver",
+				Name: "cluster-lockserver",
 			},
 			CellSelector:     testSel,
 			KeyspaceSelector: testSel,
@@ -287,7 +287,14 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 	objs := []runtime.Object{
 		&vitessv1alpha2.VitessLockserver{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "lockserver",
+				Name:      "cluster-lockserver",
+				Namespace: testNamespace,
+				Labels:    testLabels,
+			},
+		},
+		&vitessv1alpha2.VitessLockserver{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cell-lockserver",
 				Namespace: testNamespace,
 				Labels:    testLabels,
 			},
@@ -300,7 +307,7 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 			},
 			Spec: vitessv1alpha2.VitessCellSpec{
 				LockserverRef: &corev1.LocalObjectReference{
-					Name: "lockserver",
+					Name: "cell-lockserver",
 				},
 			},
 		},
@@ -443,6 +450,11 @@ func TestSaneNormalAndValidCluster(t *testing.T) {
 		}
 		if tablet.Shard() == nil {
 			t.Errorf("No parent shard in tablet after normalization")
+		}
+		if tablet.Lockserver() == nil {
+			t.Errorf("No lockserver in tablet after normalization")
+		} else if tablet.Lockserver().GetName() != "cell-lockserver" {
+			t.Errorf("Wrong lockserver in tablet after normalization. Should be 'cell-lockserver', not %s", tablet.Lockserver().GetName())
 		}
 	}
 
