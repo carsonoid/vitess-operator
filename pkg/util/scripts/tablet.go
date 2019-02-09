@@ -29,15 +29,15 @@ echo report-host=$hostname.vttablet > /vtdataroot/tabletdata/report-host.cnf
 
 # make sure that etcd is initialized
 eval exec /vt/bin/vtctl $(cat <<END_OF_COMMAND
-{{- if eq .GlobalLockserver.Spec.Type "etcd2" }}
+{{- if eq .LocalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_root={{ .GlobalLockserver.Spec.Etcd2.Path }}
-  -topo_global_server_address="{{ .GlobalLockserver.Spec.Etcd2.Address }}"
+  -topo_global_root={{ .LocalLockserver.Spec.Etcd2.Path }}
+  -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
 {{- end }}
   -logtostderr=true
   -stderrthreshold=0
   UpdateCellInfo
-  -server_address="{{ .GlobalLockserver.Spec.Etcd2.Address }}"
+  -server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
   "{{ .Cell.Name }}"
 END_OF_COMMAND
 )
@@ -69,11 +69,11 @@ fi
 export MYSQL_FLAVOR
 export EXTRA_MY_CNF="/vtdataroot/tabletdata/report-host.cnf:/vt/config/mycnf/rbr.cnf"
 
-{{ if eq .GlobalLockserver.Spec.Type "etcd2" }}
+{{ if eq .LocalLockserver.Spec.Type "etcd2" }}
 eval exec /vt/bin/vttablet $(cat <<END_OF_COMMAND
   -topo_implementation="etcd2"
-  -topo_global_server_address="{{ .GlobalLockserver.Spec.Etcd2.Address }}"
-  -topo_global_root={{ .GlobalLockserver.Spec.Etcd2.Path }}
+  -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
+  -topo_global_root={{ .LocalLockserver.Spec.Etcd2.Path }}
   -logtostderr
   -port 15002
   -grpc_port 16002

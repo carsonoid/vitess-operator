@@ -12,10 +12,10 @@ const (
   -port=15000
   -grpc_port=15999
   -service_map="grpc-vtctl"
-  {{ if eq .Lockserver.Spec.Type "etcd2" }}
+  {{ if eq .LocalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_server_address="{{ .Lockserver.Spec.Etcd2.Address }}"
-  -topo_global_root={{ .Lockserver.Spec.Etcd2.Path }}
+  -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
+  -topo_global_root={{ .LocalLockserver.Spec.Etcd2.Path }}
   {{ end }}
 END_OF_COMMAND
 )
