@@ -84,6 +84,7 @@ func GetCellVTctldResources(cell *vitessv1alpha2.VitessCell) (*appsv1.Deployment
 	labels := map[string]string{
 		"app":       "vitess",
 		"cluster":   cell.Cluster().GetName(),
+		"cell":      cell.GetName(),
 		"component": "vtctld",
 	}
 
