@@ -16,8 +16,6 @@ type VitessTabletSpec struct {
 
 	CellID string `json:"cellID"`
 
-	Keyrange KeyRange `json:"keyrange"`
-
 	Type TabletType `json:"type"`
 
 	Datastore TabletDatastore `json:"datastore"`

@@ -1118,7 +1118,6 @@ func (in *VitessTabletSpec) DeepCopyInto(out *VitessTabletSpec) {
 		*out = new(int32)
 		**out = **in
 	}
-	out.Keyrange = in.Keyrange
 	out.Datastore = in.Datastore
 	if in.Containers != nil {
 		in, out := &in.Containers, &out.Containers

@@ -27,6 +27,20 @@ func (n *Normalizer) ValidateCluster(cluster *vitessv1alpha2.VitessCluster) erro
 		return ValidationErrorNoShards
 	}
 
+	// check for overlapping keyranges
+	for _, shard := range cluster.Shards() {
+		// store matched keyranges
+		keyranges := make(map[string]struct{})
+
+		// if keyrange string is already in the map then it is a duplicate
+		if _, ok := keyranges[shard.Spec.KeyRange.String()]; ok {
+			return ValidationErrorOverlappingKeyrange
+		}
+
+		// set keyrange string as existing
+		keyranges[shard.Spec.KeyRange.String()] = struct{}{}
+	}
+
 	if len(cluster.Tablets()) == 0 {
 		return ValidationErrorNoTablets
 	}

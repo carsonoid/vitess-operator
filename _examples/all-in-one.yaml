@@ -57,7 +57,7 @@ spec:
       - metadata:
           name: "x-80"
         spec:
-          keyRange: { To: "80" }
+          keyRange: { to: "80" }
           defaults:
             replicas: 2
             containers:
@@ -75,7 +75,7 @@ spec:
       - metadata:
           name: "80-x"
         spec:
-          keyRange: { From: "80" }
+          keyRange: { from: "80" }
           defaults:
             replicas: 2
             containers:

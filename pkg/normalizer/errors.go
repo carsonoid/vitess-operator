@@ -16,6 +16,8 @@ var (
 	ValidationErrorNoTablets   ValidationError = errors.New("No Tablets in Cluster")
 	ValidationErrorNoKeyspaces ValidationError = errors.New("No Keyspaces in Cluster")
 
+	ValidationErrorOverlappingKeyrange ValidationError = errors.New("Multiple shards provided with the same keyrange")
+
 	ValidationErrorNoCellForTablet ValidationError = errors.New("No Cell for Tablet")
 )
 
