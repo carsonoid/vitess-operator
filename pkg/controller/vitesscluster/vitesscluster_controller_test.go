@@ -96,8 +96,8 @@ func TestTabletTemplates(t *testing.T) {
 				Spec: vitessv1alpha2.VitessLockserverSpec{
 					Type: vitessv1alpha2.LockserverTypeEtcd2,
 					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
-						Address: etcd2Address,
-						Path:    etcd2Path,
+						Address:    etcd2Address,
+						PathPrefix: etcd2Path,
 					},
 				},
 			},
@@ -111,8 +111,8 @@ func TestTabletTemplates(t *testing.T) {
 							Spec: vitessv1alpha2.VitessLockserverSpec{
 								Type: vitessv1alpha2.LockserverTypeEtcd2,
 								Etcd2: &vitessv1alpha2.Etcd2Lockserver{
-									Address: etcd2Address,
-									Path:    etcd2Path,
+									Address:    etcd2Address,
+									PathPrefix: etcd2Path,
 								},
 							},
 						},

@@ -25,8 +25,8 @@ func TestGetCellVTGateResources(t *testing.T) {
 				Spec: vitessv1alpha2.VitessLockserverSpec{
 					Type: vitessv1alpha2.LockserverTypeEtcd2,
 					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
-						Address: "global-lockserver:8080",
-						Path:    "/global",
+						Address:    "global-lockserver:8080",
+						PathPrefix: "/global",
 					},
 				},
 			},
