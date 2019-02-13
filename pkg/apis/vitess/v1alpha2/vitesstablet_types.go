@@ -69,6 +69,20 @@ type TabletCredentials struct {
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty" protobuf:"bytes,4,opt,name=secretRef"`
 }
 
+// status is for internal use only. If it was exported then it would dirty-up the
+// tablet objects embedded in other resources and would result in mixed status and spec data
+// it is here for use by the VitessCluster object and its controller
+type VitessTabletStatus struct {
+	Phase TabletPhase `json:"-"`
+}
+
+type TabletPhase string
+
+const (
+	TabletPhaseNone  TabletPhase = ""
+	TabletPhaseReady TabletPhase = "Ready"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // VitessTablet is the Schema for the vitesstablets API
@@ -78,6 +92,9 @@ type VitessTablet struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec VitessTabletSpec `json:"spec,omitempty"`
+
+	// internal use only. See struct def for details
+	status VitessTabletStatus `json:"-"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

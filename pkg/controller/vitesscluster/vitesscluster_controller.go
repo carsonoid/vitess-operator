@@ -2,9 +2,12 @@ package vitesscluster
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -124,7 +127,45 @@ func (r *ReconcileVitessCluster) Reconcile(request reconcile.Request) (reconcile
 		return result, nil
 	}
 
+	// Status updates
+
+	switch cluster.Phase() {
+	// Set cluster status to Created if it's a new cluster
+	case vitessv1alpha2.ClusterPhaseNone:
+		r.SetClusterPhase(cluster, vitessv1alpha2.ClusterPhaseCreating)
+	// Set a creating cluster status to Ready if all tablet sets are ready
+	case vitessv1alpha2.ClusterPhaseCreating:
+		if cluster.AllTabletsReady() {
+			r.SetClusterPhase(cluster, vitessv1alpha2.ClusterPhaseReady)
+		} else {
+			// Requeue to re-check for readiness later
+			reqLogger.Info("Cluster created but not ready. Will try again later.")
+			return reconcile.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
+		}
+	}
+
 	// Nothing to do - don't reqeue
 	reqLogger.Info("Skip reconcile: all managed services in sync")
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileVitessCluster) SetClusterPhase(cluster *vitessv1alpha2.VitessCluster, p vitessv1alpha2.ClusterPhase) error {
+	log.Info(fmt.Sprintf("Setting VitessCluster to %s phase", p))
+
+	// Get latest cluster
+	foundCluster := &vitessv1alpha2.VitessCluster{}
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: cluster.GetName(), Namespace: cluster.GetNamespace()}, foundCluster); err != nil {
+		return err
+	}
+
+	// set phase
+	foundCluster.SetPhase(p)
+
+	// update
+	if err := r.client.Status().Update(context.TODO(), foundCluster); err != nil {
+		log.Error(err, "Failed to update VitessCluster phase")
+		return err
+	}
+
+	return nil
 }

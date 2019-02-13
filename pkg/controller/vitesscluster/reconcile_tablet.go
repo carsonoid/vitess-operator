@@ -77,6 +77,12 @@ func (r *ReconcileVitessCluster) ReconcileTabletResources(tablet *vitessv1alpha2
 				return reconcile.Result{}, err
 			}
 		}
+
+		// Set the tablet status based on the StatefulSet status
+		// this is for use by the VitessCluster controller later
+		if foundStatefulSet.Status.Replicas == foundStatefulSet.Status.ReadyReplicas {
+			tablet.SetPhase(vitessv1alpha2.TabletPhaseReady)
+		}
 	}
 
 	return reconcile.Result{}, nil

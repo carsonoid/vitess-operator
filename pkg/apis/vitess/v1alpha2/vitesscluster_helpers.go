@@ -57,3 +57,24 @@ func (cluster *VitessCluster) GetScopedName(extra ...string) string {
 		},
 		extra...), "-")
 }
+
+func (cluster *VitessCluster) Phase() ClusterPhase {
+	return cluster.Status.Phase
+}
+
+func (cluster *VitessCluster) SetPhase(p ClusterPhase) {
+	cluster.Status.Phase = p
+}
+
+func (cluster *VitessCluster) InPhase(p ClusterPhase) bool {
+	return cluster.Status.Phase == p
+}
+
+func (cluster *VitessCluster) AllTabletsReady() bool {
+	for _, tablet := range cluster.Tablets() {
+		if !tablet.InPhase(TabletPhaseReady) {
+			return false
+		}
+	}
+	return true
+}

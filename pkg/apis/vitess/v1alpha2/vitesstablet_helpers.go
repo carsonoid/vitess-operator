@@ -120,3 +120,15 @@ func (tablet *VitessTablet) GetVTTabletContainer() *VTTabletContainer {
 func (tablet *VitessTablet) GetTabletID() string {
 	return strconv.FormatInt(tablet.Spec.TabletID, 10)
 }
+
+func (tablet *VitessTablet) Phase() TabletPhase {
+	return tablet.status.Phase
+}
+
+func (tablet *VitessTablet) SetPhase(p TabletPhase) {
+	tablet.status.Phase = p
+}
+
+func (tablet *VitessTablet) InPhase(p TabletPhase) bool {
+	return tablet.status.Phase == p
+}
