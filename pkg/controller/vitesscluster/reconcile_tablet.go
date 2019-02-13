@@ -70,7 +70,7 @@ func (r *ReconcileVitessCluster) ReconcileTabletResources(tablet *vitessv1alpha2
 		// generated statefulset so it is always different. The extra updates are harmless and don't actually
 		// trigger statefulset upgrades.
 		// TODO more exact diff detection
-		if !reflect.DeepEqual(foundStatefulSet, statefulSet.Spec) {
+		if !reflect.DeepEqual(foundStatefulSet.Spec, statefulSet.Spec) {
 			log.Info("Updating statefulSet for tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
 			err = r.client.Update(context.TODO(), statefulSet)
 			if err != nil {
