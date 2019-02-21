@@ -12,20 +12,20 @@ const (
   -tablet_types_to_wait="MASTER,REPLICA"
   -gateway_implementation="discoverygateway"
   -mysql_server_version="5.5.10-Vitess"
-  {{ if eq .LocalLockserver.Spec.Type "etcd2" }}
+  {{- if eq .LocalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
   -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
-  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}/{{ .Cluster.Name }}"
-  {{ end }}
-  {{ if .Cell.Spec.MySQLProtocol }}
+  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}"
+  {{- end }}
+  {{- if .Cell.Spec.MySQLProtocol }}
   -mysql_server_port=3306
-  {{ if .Cell.Spec.MySQLProtocol.PasswordSecretRef }}
+  {{- if .Cell.Spec.MySQLProtocol.PasswordSecretRef }}
   -mysql_auth_server_impl="static"
   -mysql_auth_server_static_file="/mysqlcreds/creds.json"
-  {{ else if eq .Cell.Spec.MySQLProtocol.AuthType "none" }}
+  {{- else if eq .Cell.Spec.MySQLProtocol.AuthType "none" }}
   -mysql_auth_server_impl="none"
-  {{ end }}
-  {{ end }}
+  {{- end }}
+  {{- end }}
 END_OF_COMMAND
 )
 `
