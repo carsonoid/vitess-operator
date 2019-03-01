@@ -1,7 +1,7 @@
 package scripts
 
 const (
-  VTTabletInitTemplate = `
+	VTTabletInitTemplate = `
 set -ex
 # Split pod name (via hostname) into prefix and ordinal index.
 hostname=$(hostname -s)
@@ -43,7 +43,7 @@ END_OF_COMMAND
 )
 `
 
-  VTTabletStartTemplate = `
+	VTTabletStartTemplate = `
 set -ex
 
 if [ "$VT_DB_FLAVOR" = "percona" ]; then
@@ -94,8 +94,8 @@ END_OF_COMMAND
 {{ end }}
 `
 
-  // TODO move the actual reparenting work to the operator
-  VTTabletPreStopTemplate = `
+	// TODO move the actual reparenting work to the operator
+	VTTabletPreStopTemplate = `
 set -x
 
 VTCTLD_SVC=vtctld.default:15999

@@ -1,7 +1,7 @@
 package scripts
 
 const (
-  VtCtldStart = `eval exec /vt/bin/vtctld $(cat <<END_OF_COMMAND
+	VtCtldStart = `eval exec /vt/bin/vtctld $(cat <<END_OF_COMMAND
   -cell={{ .Cell.Name }}
   -web_dir="/vt/web/vtctld"
   -web_dir2="/vt/web/vtctld2/app"

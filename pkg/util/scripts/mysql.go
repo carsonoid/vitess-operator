@@ -1,7 +1,7 @@
 package scripts
 
 var (
-  MySQLInitTemplate = `
+	MySQLInitTemplate = `
 set -ex
 # set up the directories vitess needs
 mkdir -p /vttmp/bin
@@ -21,7 +21,7 @@ touch /vtdataroot/tabletdata/general.log
 rm -f /vtdataroot/tabletdata/mysql.sock
 `
 
-  MySQLStartTemplate = `
+	MySQLStartTemplate = `
 set -ex
 if [ "$VT_DB_FLAVOR" = "percona" ]; then
   MYSQL_FLAVOR=Percona
@@ -58,7 +58,7 @@ eval exec /vt/bin/mysqlctld $(cat <<END_OF_COMMAND
 END_OF_COMMAND
 )
 `
-  MySQLPreStopTemplate = `
+	MySQLPreStopTemplate = `
 set -x
 
 # block shutting down mysqlctld until vttablet shuts down first

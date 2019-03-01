@@ -1,7 +1,7 @@
 package scripts
 
 var (
-  InitReplicaMaster = `
+	InitReplicaMaster = `
 set -ex
 
 VTCTLD_SVC={{ .Cluster.Name }}-{{ .Cell.Name }}-vtctld.{{ .Cluster.Namespace }}:15999

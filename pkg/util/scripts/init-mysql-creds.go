@@ -1,7 +1,7 @@
 package scripts
 
 var (
-  InitMySQLCreds = `
+	InitMySQLCreds = `
   set -ex
   creds=$(cat <<END_OF_COMMAND
   {

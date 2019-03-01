@@ -1,7 +1,7 @@
 package scripts
 
 const (
-  VTGateStart = `eval exec /vt/bin/vtgate $(cat <<END_OF_COMMAND
+	VTGateStart = `eval exec /vt/bin/vtgate $(cat <<END_OF_COMMAND
   -cell={{ .Cell.Name }}
   -logtostderr=true
   -stderrthreshold=0
