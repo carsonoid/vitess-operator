@@ -75,19 +75,22 @@ eval exec /vt/bin/vttablet $(cat <<END_OF_COMMAND
   -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
   -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}/{{ .Cluster.Name }}"
   -logtostderr
-  -port 15002
-  -grpc_port 16002
-  -service_map "grpc-queryservice,grpc-tabletmanager,grpc-updatestream"
-  -tablet_dir "tabletdata"
-  -tablet-path "{{ .Cell.Name }}-$(cat /vtdataroot/tabletdata/tablet-uid)"
-  -tablet_hostname "$(hostname).{{ .Cluster.Name }}-vttablet"
-  -init_keyspace "{{ .Keyspace.Name }}"
-  -init_shard "{{ .Shard.Spec.KeyRange }}"
-  -init_tablet_type "{{ .Tablet.Spec.Type }}"
-  -health_check_interval "5s"
-  -mysqlctl_socket "/vtdataroot/mysqlctl.sock"
+  -port=15002
+  -grpc_port=16002
+  -service_map="grpc-queryservice,grpc-tabletmanager,grpc-updatestream"
+  -tablet_dir="tabletdata"
+  -tablet-path="{{ .Cell.Name }}-$(cat /vtdataroot/tabletdata/tablet-uid)"
+  -tablet_hostname="$(hostname).{{ .Cluster.Name }}-vttablet"
+  -init_keyspace="{{ .Keyspace.Name }}"
+  -init_shard="{{ .Shard.Spec.KeyRange }}"
+  -init_tablet_type="{{ .Tablet.Spec.Type }}"
+  -init_db_name_override="{{ .Keyspace.Name }}"
+  -v=7
+  -health_check_interval="5s"
+  -mysqlctl_socket="/vtdataroot/mysqlctl.sock"
   -enable_replication_reporter
-END_OF_COMMAND)
+END_OF_COMMAND
+)
 {{ end }}
 `
 
