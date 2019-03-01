@@ -10,6 +10,7 @@ spec:
     metadata:
       name: global
     spec:
+      type: etcd2
       etcd2:
         address: etcd-global-client:2379
         pathPrefix: /vitess/global
