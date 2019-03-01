@@ -100,7 +100,7 @@ func getServiceForClusterTablets(cluster *vitessv1alpha2.VitessCluster) (*corev1
 
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.GetScopedName("vttablet"),
+			Name:      cluster.GetTabletServiceName(),
 			Namespace: cluster.GetNamespace(),
 			Labels:    labels,
 			Annotations: map[string]string{

@@ -47,6 +47,10 @@ func (tablet *VitessTablet) Shard() *VitessShard {
 	return tablet.Spec.parent.Shard
 }
 
+func (tablet *VitessTablet) GetStatefulSetName() string {
+	return tablet.GetScopedName(string(tablet.Spec.Type))
+}
+
 func (tablet *VitessTablet) GetScopedName(extra ...string) string {
 	return strings.Join(append(
 		[]string{

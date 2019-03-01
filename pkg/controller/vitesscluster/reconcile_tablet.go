@@ -190,7 +190,7 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      tablet.GetScopedName(string(tablet.Spec.Type)),
+			Name:      tablet.GetStatefulSetName(),
 			Namespace: tablet.Cluster().GetNamespace(),
 			Labels:    selfLabels,
 		},
@@ -204,7 +204,7 @@ func getStatefulSetForTablet(tablet *vitessv1alpha2.VitessTablet) (*appsv1.State
 			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
 				Type: appsv1.RollingUpdateStatefulSetStrategyType,
 			},
-			ServiceName: tablet.Cluster().GetScopedName("vttablet"),
+			ServiceName: tablet.Cluster().GetTabletServiceName(),
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: selfLabels,

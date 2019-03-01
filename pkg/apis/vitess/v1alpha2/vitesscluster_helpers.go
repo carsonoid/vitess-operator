@@ -58,6 +58,10 @@ func (cluster *VitessCluster) GetScopedName(extra ...string) string {
 		extra...), "-")
 }
 
+func (cluster *VitessCluster) GetTabletServiceName() string {
+	return cluster.GetScopedName("tab")
+}
+
 func (cluster *VitessCluster) Phase() ClusterPhase {
 	return cluster.Status.Phase
 }

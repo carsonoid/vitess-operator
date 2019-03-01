@@ -18,7 +18,8 @@ var (
 
 	ValidationErrorOverlappingKeyrange ValidationError = errors.New("Multiple shards provided with the same keyrange")
 
-	ValidationErrorNoCellForTablet ValidationError = errors.New("No Cell for Tablet")
+	ValidationErrorNoCellForTablet   ValidationError = errors.New("No Cell for Tablet")
+	ValidationErrorTabletNameTooLong ValidationError = errors.New("Tablet name is too long and would break mysql replication")
 )
 
 var ClientError = errors.New("Client Error")

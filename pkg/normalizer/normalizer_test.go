@@ -2,7 +2,7 @@ package normalizer
 
 import (
 	"context"
-	// "strings"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -261,6 +261,47 @@ func TestValidation(t *testing.T) {
 		}
 	}
 
+}
+
+func TestValidateTabletHostnameSizeLimit(t *testing.T) {
+	cluster := &vitessv1alpha2.VitessCluster{}
+	cell := &vitessv1alpha2.VitessCell{}
+	keyspace := &vitessv1alpha2.VitessKeyspace{}
+	shard := &vitessv1alpha2.VitessShard{}
+	tablet := &vitessv1alpha2.VitessTablet{}
+
+	tablet.SetParentCluster(cluster)
+	tablet.SetParentCell(cell)
+	tablet.SetParentKeyspace(keyspace)
+	tablet.SetParentShard(shard)
+
+	baseLen := getMaxExpectedTabletHostLength(tablet)
+
+	tests := []struct {
+		numChars int
+		expected ValidationError
+	}{
+		{
+			(MaxTabletHostnameLength - baseLen) - 1, // one under max
+			nil,
+		},
+		{
+			MaxTabletHostnameLength - baseLen, // exactly max
+			ValidationErrorTabletNameTooLong,
+		},
+	}
+
+	n := New(fake.NewFakeClient())
+
+	for _, tc := range tests {
+		// increase the final hostname by the test size
+		tablet.Keyspace().Name = strings.Repeat("x", tc.numChars)
+		t.Logf("%s", tablet.GetStatefulSetName())
+		err := n.ValidateTablet(tablet)
+		if err != tc.expected {
+			t.Errorf("Unexpected error: Got: %s; Expected: %s", err, tc.expected)
+		}
+	}
 }
 
 // TestSaneNormalAndValidCluster makes sure that a perfect cluster works as expected
