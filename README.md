@@ -76,14 +76,14 @@ kubectl apply -f my-vitess.yaml
 Wait until the cluster is ready:
 
 ```sh
-kubectl get vitessclusters -o 'custom-columns=NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status'
+kubectl get vitessclusters -o 'custom-columns=NAME:.metadata.name,READY:.status.phase'
 ```
 
 You should see:
 
 ```console
-NAME      READY
-vitess    True
+NAME      PHASE
+vitess    Ready
 ```
 
 Start a kubectl proxy:
@@ -95,7 +95,7 @@ kubectl proxy --port=8001
 Then visit:
 
 ```
-http://localhost:8001/api/v1/namespaces/default/services/vitess-global-vtctld:web/proxy/app/
+http://localhost:8001/api/v1/namespaces/default/services/vt-zone1-vtctld:web/proxy/app/
 ```
 
 ### Clean Up
