@@ -31,7 +31,7 @@ echo report-host=$hostname.{{ .Cluster.Name }}-vttablet > /vtdataroot/tabletdata
 eval exec /vt/bin/vtctl $(cat <<END_OF_COMMAND
 {{- if eq .LocalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
-  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}/{{ .Cluster.Name }}"
+  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.Path }}"
   -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
 {{- end }}
   -logtostderr=true
@@ -73,7 +73,7 @@ export EXTRA_MY_CNF="/vtdataroot/tabletdata/report-host.cnf:/vt/config/mycnf/rbr
 eval exec /vt/bin/vttablet $(cat <<END_OF_COMMAND
   -topo_implementation="etcd2"
   -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
-  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}/{{ .Cluster.Name }}"
+  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.Path }}"
   -logtostderr
   -port=15002
   -grpc_port=16002

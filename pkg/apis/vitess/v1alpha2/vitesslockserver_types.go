@@ -25,8 +25,8 @@ const (
 const LockserverTypeDefault LockserverType = LockserverTypeEtcd2
 
 type Etcd2Lockserver struct {
-	Address    string `json:"address"`
-	PathPrefix string `json:"pathPrefix"`
+	Address string `json:"address"`
+	Path    string `json:"path"`
 }
 
 // VitessLockserverStatus defines the observed state of VitessLockserver

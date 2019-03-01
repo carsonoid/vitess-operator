@@ -26,7 +26,7 @@ func TestGetCellVTGateResources(t *testing.T) {
 					Type: vitessv1alpha2.LockserverTypeEtcd2,
 					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
 						Address:    "global-lockserver:8080",
-						PathPrefix: "/global",
+						Path: "/global",
 					},
 				},
 			},

@@ -97,7 +97,7 @@ func TestTabletTemplates(t *testing.T) {
 					Type: vitessv1alpha2.LockserverTypeEtcd2,
 					Etcd2: &vitessv1alpha2.Etcd2Lockserver{
 						Address:    etcd2Address,
-						PathPrefix: etcd2Path,
+						Path: etcd2Path,
 					},
 				},
 			},
@@ -112,7 +112,7 @@ func TestTabletTemplates(t *testing.T) {
 								Type: vitessv1alpha2.LockserverTypeEtcd2,
 								Etcd2: &vitessv1alpha2.Etcd2Lockserver{
 									Address:    etcd2Address,
-									PathPrefix: etcd2Path,
+									Path: etcd2Path,
 								},
 							},
 						},

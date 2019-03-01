@@ -15,7 +15,7 @@ const (
   {{- if eq .LocalLockserver.Spec.Type "etcd2" }}
   -topo_implementation="etcd2"
   -topo_global_server_address="{{ .LocalLockserver.Spec.Etcd2.Address }}"
-  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.PathPrefix }}"
+  -topo_global_root="{{ .LocalLockserver.Spec.Etcd2.Path }}"
   {{- end }}
   {{- if .Cell.Spec.MySQLProtocol }}
   -mysql_server_port=3306
