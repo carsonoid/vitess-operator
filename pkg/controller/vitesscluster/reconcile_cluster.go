@@ -108,9 +108,10 @@ func getServiceForClusterTablets(cluster *vitessv1alpha2.VitessCluster) (*corev1
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: corev1.ClusterIPNone,
-			Selector:  labels,
-			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP:                corev1.ClusterIPNone,
+			Selector:                 labels,
+			Type:                     corev1.ServiceTypeClusterIP,
+			PublishNotReadyAddresses: true,
 			Ports: []corev1.ServicePort{
 				{
 					Name: "web",
