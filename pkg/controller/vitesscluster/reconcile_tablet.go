@@ -70,9 +70,19 @@ func (r *ReconcileVitessCluster) ReconcileTabletResources(tablet *vitessv1alpha2
 		// generated statefulset so it is always different. The extra updates are harmless and don't actually
 		// trigger statefulset upgrades.
 		// TODO more exact diff detection
-		if !reflect.DeepEqual(foundStatefulSet.Spec, statefulSet.Spec) {
+		if !reflect.DeepEqual(foundStatefulSet.Spec.Template, statefulSet.Spec.Template) ||
+			!reflect.DeepEqual(foundStatefulSet.Spec.Replicas, statefulSet.Spec.Replicas) ||
+			!reflect.DeepEqual(foundStatefulSet.Spec.UpdateStrategy, statefulSet.Spec.UpdateStrategy) {
 			log.Info("Updating statefulSet for tablet", "Namespace", tablet.GetNamespace(), "VitessCluster.Name", tablet.Cluster().GetName(), "Tablet.Name", tablet.GetName())
-			err = r.client.Update(context.TODO(), statefulSet)
+
+			// Update foundStatefulSet with changable fields from the generated StatefulSet
+
+			// Only Template, replicas and updateStrategy may be updated on existing StatefulSet spec
+			statefulSet.Spec.Template.DeepCopyInto(&foundStatefulSet.Spec.Template)
+			statefulSet.Spec.Replicas = foundStatefulSet.Spec.Replicas
+			statefulSet.Spec.UpdateStrategy.DeepCopyInto(&foundStatefulSet.Spec.UpdateStrategy)
+
+			err = r.client.Update(context.TODO(), foundStatefulSet)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
