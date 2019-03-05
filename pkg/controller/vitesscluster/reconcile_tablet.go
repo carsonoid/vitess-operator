@@ -613,3 +613,109 @@ func GetReplicaTabletInitMasterJob(tablet *vitessv1alpha2.VitessTablet) (*batchv
 		},
 	}, nil
 }
+
+func ReconcileClusterOrchestratorStatefulSet(cluster *vitessv1alpha2.VitessCluster) (ss *appsv1.StatefulSet, directSvc *corev1.Service, headlessSvc *corev1.Service, err error) {
+	labels := map[string]string{
+		"app":       "vitess",
+		"cluster":   cluster.GetName(),
+		"component": "orchestrator",
+	}
+
+	// Build affinity
+	affinity := &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				// Hard preference to avoid running on the same host as another orchestrator
+				{
+					Weight: 100,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchLabels: labels,
+						},
+						TopologyKey: "kubernetes.io/hostname",
+					},
+				},
+			},
+		},
+	}
+
+	containers, initContainers, containerGetErr := GetOrchestratorContainers(cluster)
+	if err != nil {
+		err = containerGetErr
+		return
+	}
+
+	replicas := int32(3) // TODO get this from the CR
+	ss = &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.GetScopedName("orchestrator"),
+			Namespace: cluster.GetNamespace(),
+			Labels:    labels,
+		},
+		Spec: appsv1.StatefulSetSpec{
+			PodManagementPolicy: appsv1.ParallelPodManagement,
+			Replicas:            &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+			},
+			ServiceName: cluster.GetScopedName("orchestrator-headless"),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Affinity:       affinity,
+					Containers:     containers,
+					InitContainers: initContainers,
+					Volumes: []corev1.Volume{
+						{
+							Name: "vt",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup:   getInt64Ptr(2000),
+						RunAsUser: getInt64Ptr(1000),
+					},
+					TerminationGracePeriodSeconds: getInt64Ptr(60000000),
+				},
+			},
+		},
+	}
+
+	directSvc = &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cluster.GetScopedName("orchestrator"),
+			Namespace: cluster.GetNamespace(),
+			Labels:    labels,
+			Annotations: map[string]string{
+				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP:                corev1.ClusterIPNone,
+			Selector:                 labels,
+			Type:                     corev1.ServiceTypeClusterIP,
+			PublishNotReadyAddresses: true,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "web",
+					Port:       80,
+					TargetPort: 3000,
+				},
+				{
+					Name:       "raft",
+					Port:       10008,
+					TargetPort: 10008,
+				},
+			},
+		},
+	}
+
+	return
+}
